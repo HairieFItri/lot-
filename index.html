@@ -148,6 +148,7 @@
 
 <script src="js/leaflet.js"></script>
 <script src="data/LOTFINAL_0.js"></script>
+<script src="data/TITIKCLEANGABUNG_1.js"></script>
 
 <script>
     var map = L.map('map', { zoomControl: false, maxZoom: 22 }).setView([2.1038, 102.5218], 18);
@@ -170,6 +171,7 @@
         setTimeout(() => { map.invalidateSize(); }, 300);
     }
 
+    // --- GAYA LOT TANAH ---
     function lotStyle(feature) {
         return { color: '#ffffff', weight: 1, fillColor: '#e74c3c', fillOpacity: 0.5 };
     }
@@ -177,13 +179,9 @@
     var lotLayer = L.geoJson(json_LOTFINAL_0, {
         style: lotStyle,
         onEachFeature: function(feature, layer) {
-            
             layer.on('mouseover', function(e) {
                 this.setStyle({ weight: 3, color: '#f1c40f', fillOpacity: 0.7 });
-                
                 var props = feature.properties;
-                
-                // MENGGUNAKAN NAMA KOLUM SEPERTI DALAM FAIL .JS ANDA (tsp — pe)
                 var ownerName = props["tsp — pe"] || "TIADA MAKLUMAT";
                 
                 var tooltipContent = `
@@ -194,7 +192,6 @@
                         <b>Luas:</b> ${props.AREA ? props.AREA.toFixed(2) : '0'} m²
                     </div>
                 `;
-
                 layer.bindTooltip(tooltipContent, { sticky: true, direction: 'top', className: 'custom-tooltip' }).openTooltip();
             });
 
@@ -212,22 +209,46 @@
         }
     }).addTo(map);
 
+    // --- 2. GAYA & PEMPROSESAN TITIK SEMPADAN ---
+    var boundaryPoints = L.geoJson(json_TITIKCLEANGABUNG_1, {
+        pointToLayer: function (feature, latlng) {
+            // Membuat bulatan kecil berwarna kuning sebagai penanda batu sempadan
+            return L.circleMarker(latlng, {
+                radius: 4,
+                fillColor: "#ffff00",
+                color: "#000",
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.8
+            });
+        },
+        onEachFeature: function (feature, layer) {
+            // Tooltip untuk titik jika perlu maklumat tambahan (contoh: vertex index)
+            layer.bindTooltip("Batu Sempadan: " + (feature.properties.vertex_ind || "N/A"), {
+                direction: 'top'
+            });
+        }
+    }).addTo(map);
+
+    // --- FUNGSI TOGGLE ---
     function toggleMainLayer() {
         document.getElementById('check-lot').checked ? map.addLayer(lotLayer) : map.removeLayer(lotLayer);
     }
 
+    // Mengubah fungsi ini supaya ia menutup/membuka layer titik sempadan
     function toggleBoundary() {
-        lotLayer.setStyle({ weight: document.getElementById('check-boundary').checked ? 1 : 0 });
+        if (document.getElementById('check-boundary').checked) {
+            map.addLayer(boundaryPoints);
+        } else {
+            map.removeLayer(boundaryPoints);
+        }
     }
 
     function showLotInfo(props) {
         document.getElementById('val-lot').innerText = props.NO_LOT || '-';
         document.getElementById('val-area').innerText = props.AREA ? props.AREA.toFixed(2) + " m²" : '-';
-        
-        // PAPARKAN NAMA PEMILIK DARI KOLUM tsp — pe DI SIDEBAR
         var owner = props["tsp — pe"] || "TIADA MAKLUMAT";
         document.getElementById('val-owner').innerText = owner;
-        
         document.getElementById('inputSearchLot').value = props.NO_LOT;
     }
 
