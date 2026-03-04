@@ -7,7 +7,6 @@
     <title>Taman Putra Harmoni Resident - Dashboard</title>
     
     <link rel="stylesheet" href="css/leaflet.css">
-    <link rel="stylesheet" href="css/fontawesome-all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -37,7 +36,7 @@
             position: relative;
             z-index: 1000;
         }
-        #sidebar.closed { margin-right: -350px; }
+        #sidebar.closed { margin-right: -350px; width: 0; padding: 0; overflow: hidden; }
 
         #toggle-btn {
             position: absolute; top: 15px; right: 15px; 
@@ -46,13 +45,17 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
 
-        .section-label { color: #e74c3c; font-weight: bold; font-size: 0.85rem; text-transform: uppercase; border-bottom: 1px solid #3d3d3d; padding-bottom: 8px; }
-        .control-card { background: #2f3640; padding: 15px; border-radius: 10px; }
+        .section-label { color: #e74c3c; font-weight: bold; font-size: 0.85rem; text-transform: uppercase; border-bottom: 1px solid #3d3d3d; padding-bottom: 8px; margin-bottom: 10px; display: block; }
+        .control-card { background: #2f3640; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
         
         input[type="text"], select { 
             width: 100%; padding: 10px; margin-top: 8px; margin-bottom: 12px; 
             border-radius: 6px; border: none; background: #1e272e; color: white; box-sizing: border-box;
         }
+
+        /* Checkbox Styling */
+        .layer-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; cursor: pointer; font-size: 0.9rem; }
+        .layer-item input { cursor: pointer; accent-color: #e74c3c; width: 18px; height: 18px; }
 
         .btn { 
             width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; 
@@ -66,6 +69,18 @@
         .info-display { background: #1e272e; padding: 10px; border-radius: 8px; border-left: 5px solid #e74c3c; margin-top: 10px; }
         .info-tag { font-size: 0.7rem; color: #95a5a6; display: block; }
         .info-data { font-size: 1rem; font-weight: bold; color: #e74c3c; margin-top: 4px; }
+
+        /* Custom Tooltip Styling */
+        .custom-tooltip {
+            background: #2f3640 !important;
+            color: #ffffff !important;
+            border: 1px solid #e74c3c !important;
+            border-radius: 5px;
+            padding: 8px;
+            font-family: sans-serif;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .leaflet-tooltip-top:before { border-top-color: #e74c3c !important; }
 
         .slider-style { width: 100%; height: 8px; border-radius: 5px; background: #485460; outline: none; margin: 15px 0; -webkit-appearance: none; }
         .slider-style::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: #e74c3c; border-radius: 50%; cursor: pointer; }
@@ -91,8 +106,15 @@
 
         <div id="sidebar">
             <div>
-                <span class="section-label"><i class="fas fa-layer-group"></i> Kawalan Paparan</span>
+                <span class="section-label"><i class="fas fa-layer-group"></i> Pengurusan Layer</span>
                 <div class="control-card">
+                    <label class="layer-item">
+                        <input type="checkbox" id="check-lot" checked onchange="toggleMainLayer()"> Paparkan Lot Tanah
+                    </label>
+                    <label class="layer-item">
+                        <input type="checkbox" id="check-boundary" checked onchange="toggleBoundary()"> Sempadan Halus
+                    </label>
+                    <hr style="border: 0.5px solid #3d3d3d; margin: 10px 0;">
                     <label style="font-size: 0.8rem;">Mod Peta:</label>
                     <select onchange="updateBaseLayer(this.value)">
                         <option value="sat">Satelit (Hybrid)</option>
@@ -104,26 +126,22 @@
             </div>
 
             <div id="report-content">
-                <span class="section-label"><i class="fas fa-search-location"></i> Carian Lot</span>
+                <span class="section-label"><i class="fas fa-search-location"></i> Carian & Info Lot</span>
                 <div class="control-card">
-                    <input type="text" id="inputSearchLot" placeholder="Masukkan No Lot...">
+                    <input type="text" id="inputSearchLot" placeholder="Contoh: LOT 123">
                     <button class="btn btn-red" onclick="findLot()"><i class="fas fa-search"></i> Cari Sekarang</button>
                     <button class="btn btn-outline" onclick="zoomAll()"><i class="fas fa-compress-arrows-alt"></i> Lihat Semua</button>
                     <button class="btn btn-blue" onclick="generateFullPDF()"><i class="fas fa-file-pdf"></i> Export PDF</button>
                 </div>
 
-                <div class="control-card" id="info-panel" style="border-top: 3px solid #e74c3c; margin-top: 15px;">
+                <div class="control-card" id="info-panel" style="border-top: 3px solid #e74c3c;">
                     <div class="info-display">
-                        <span class="info-tag">NO. LOT</span>
+                        <span class="info-tag">NO. LOT TERPILIH</span>
                         <div class="info-data" id="val-lot">-</div>
                     </div>
                     <div class="info-display">
                         <span class="info-tag">KELUASAN</span>
                         <div class="info-data" id="val-area">-</div>
-                    </div>
-                    <div class="info-display">
-                        <span class="info-tag">STATUS PEMILIK</span>
-                        <div class="info-data">MAKLUMAT TERKUNCI</div>
                     </div>
                 </div>
             </div>
@@ -135,20 +153,19 @@
 <script src="data/LOTFINAL_0.js"></script>
 
 <script>
-    // --- SETUP MAP DENGAN HIGH ZOOM SUPPORT ---
+    // --- SETUP MAP ---
     var map = L.map('map', {
         zoomControl: false,
-        maxZoom: 22,    // Membenarkan zoom sehingga tahap 22
+        maxZoom: 22,
         minZoom: 2
-    }).setView([2.1038, 102.5218], 18); // Set awal pada zoom 18 (dekat)
+    }).setView([2.1038, 102.5218], 18);
 
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
-    // Layers dengan maxNativeZoom (Sangat Penting untuk zoom dekat)
     var satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         crossOrigin: 'anonymous',
-        maxZoom: 22,        // Limit zoom di skrin
-        maxNativeZoom: 19   // Limit imej asal dari server (elak skrin kelabu)
+        maxZoom: 22,
+        maxNativeZoom: 19
     }).addTo(map);
 
     var strLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -167,24 +184,76 @@
         setTimeout(() => { map.invalidateSize(); }, 300);
     }
 
-    // --- GIS DATA ---
+    // --- GIS DATA & LOGIK LAYER ---
+    
     function lotStyle(feature) {
-        return { color: '#ffffff', weight: 1, fillColor: '#e74c3c', fillOpacity: 0.5 };
+        return { 
+            color: '#ffffff', 
+            weight: 1, 
+            fillColor: '#e74c3c', 
+            fillOpacity: 0.5 
+        };
     }
 
     var lotLayer = L.geoJson(json_LOTFINAL_0, {
         style: lotStyle,
         onEachFeature: function(feature, layer) {
+            
+            // FUNGSI HOVER (Bila mouse sentuh)
+            layer.on('mouseover', function(e) {
+                this.setStyle({
+                    weight: 3,
+                    color: '#f1c40f',
+                    fillOpacity: 0.7
+                });
+
+                var popupContent = `
+                    <div style="text-align:center">
+                        <strong style="color:#e74c3c">INFO LOT</strong><br>
+                        <b>No Lot:</b> ${feature.properties.NO_LOT || 'N/A'}<br>
+                        <b>Luas:</b> ${feature.properties.AREA || '0'} m²
+                    </div>
+                `;
+                
+                layer.bindTooltip(popupContent, {
+                    sticky: true,
+                    direction: 'top',
+                    className: 'custom-tooltip'
+                }).openTooltip();
+            });
+
+            // FUNGSI MOUSE OUT (Bila alih mouse)
+            layer.on('mouseout', function(e) {
+                lotLayer.resetStyle(this);
+                this.closeTooltip();
+            });
+
+            // FUNGSI KLIK
             layer.on('click', function(e) {
                 showLotInfo(feature.properties);
                 lotLayer.setStyle(lotStyle); 
                 layer.setStyle({fillColor: '#f1c40f', fillOpacity: 0.8}); 
-                // Zoom ke lot yang diklik
                 map.fitBounds(layer.getBounds(), { maxZoom: 20 });
             });
-            layer.bindPopup("<b>Lot:</b> " + feature.properties.NO_LOT);
         }
     }).addTo(map);
+
+    // --- FUNGSI ON/OFF LAYER ---
+    function toggleMainLayer() {
+        if (document.getElementById('check-lot').checked) {
+            map.addLayer(lotLayer);
+        } else {
+            map.removeLayer(lotLayer);
+        }
+    }
+
+    function toggleBoundary() {
+        if (document.getElementById('check-boundary').checked) {
+            lotLayer.setStyle({ weight: 1 });
+        } else {
+            lotLayer.setStyle({ weight: 0 });
+        }
+    }
 
     function showLotInfo(props) {
         document.getElementById('val-lot').innerText = props.NO_LOT || '-';
@@ -192,15 +261,17 @@
         document.getElementById('inputSearchLot').value = props.NO_LOT;
     }
 
-    function adjustLotOpacity(v) { lotLayer.setStyle({fillOpacity: v}); }
+    function adjustLotOpacity(v) { 
+        lotLayer.setStyle({fillOpacity: v}); 
+    }
 
     function findLot() {
-        var val = document.getElementById('inputSearchLot').value;
+        var val = document.getElementById('inputSearchLot').value.toUpperCase();
         var found = false;
         lotLayer.eachLayer(function(l) {
             if(l.feature.properties.NO_LOT == val) {
-                map.fitBounds(l.getBounds(), { maxZoom: 21 }); // Zoom automatik ke tahap 21
-                l.openPopup();
+                map.fitBounds(l.getBounds(), { maxZoom: 21 });
+                l.setStyle({fillColor: '#f1c40f', fillOpacity: 0.8});
                 showLotInfo(l.feature.properties);
                 found = true;
             }
