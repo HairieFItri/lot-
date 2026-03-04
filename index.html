@@ -17,6 +17,7 @@
         html, body { height: 100%; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; background: #121212; }
         #main-container { display: flex; flex-direction: column; height: 100vh; position: relative; }
         
+        /* Header Style */
         #header { 
             height: 60px; background: #b71c1c; color: white; display: flex; 
             align-items: center; justify-content: space-between; padding: 0 20px;
@@ -26,9 +27,11 @@
         .header-logo { height: 45px; background: white; border-radius: 6px; padding: 3px; }
         .header-text { font-size: 1.3rem; font-weight: bold; letter-spacing: 1px; }
 
+        /* Layout */
         #content-body { display: flex; flex: 1; overflow: hidden; position: relative; }
         #map { flex: 1; height: 100%; background: #242424; transition: all 0.3s ease; }
 
+        /* Sidebar Style */
         #sidebar { 
             width: 350px; background: #1e272e; color: #ecf0f1; padding: 20px; 
             overflow-y: auto; display: flex; flex-direction: column; gap: 20px;
@@ -39,6 +42,7 @@
         }
         #sidebar.closed { margin-right: -350px; }
 
+        /* Toggle Button */
         #toggle-btn {
             position: absolute; top: 15px; right: 15px; 
             z-index: 1002; background: #c0392b; color: white;
@@ -54,6 +58,7 @@
             border-radius: 6px; border: none; background: #1e272e; color: white; box-sizing: border-box;
         }
 
+        /* Buttons */
         .btn { 
             width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; 
             cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; transition: 0.3s;
@@ -63,6 +68,7 @@
         .btn-blue { background: #2980b9; color: white; }
         .btn:hover { filter: brightness(1.2); transform: scale(1.02); }
 
+        /* Result Boxes */
         .info-display { background: #1e272e; padding: 10px; border-radius: 8px; border-left: 5px solid #e74c3c; margin-top: 10px; }
         .info-tag { font-size: 0.7rem; color: #95a5a6; display: block; }
         .info-data { font-size: 1rem; font-weight: bold; color: #e74c3c; margin-top: 4px; }
@@ -135,20 +141,20 @@
 <script src="data/LOTFINAL_0.js"></script>
 
 <script>
-    // --- SETUP MAP DENGAN HIGH ZOOM SUPPORT ---
+    // --- SETUP MAP (FIXED ZOOM) ---
     var map = L.map('map', {
         zoomControl: false,
-        maxZoom: 22,    // Membenarkan zoom sehingga tahap 22
+        maxZoom: 22, // Membenarkan zoom sangat dekat
         minZoom: 2
-    }).setView([2.1038, 102.5218], 18); // Set awal pada zoom 18 (dekat)
+    }).setView([2.1038, 102.5218], 18);
 
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
-    // Layers dengan maxNativeZoom (Sangat Penting untuk zoom dekat)
+    // Layers dengan maxNativeZoom supaya gambar tidak pecah/hilang bila zoom dekat
     var satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         crossOrigin: 'anonymous',
-        maxZoom: 22,        // Limit zoom di skrin
-        maxNativeZoom: 19   // Limit imej asal dari server (elak skrin kelabu)
+        maxZoom: 22,
+        maxNativeZoom: 19 
     }).addTo(map);
 
     var strLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -179,8 +185,6 @@
                 showLotInfo(feature.properties);
                 lotLayer.setStyle(lotStyle); 
                 layer.setStyle({fillColor: '#f1c40f', fillOpacity: 0.8}); 
-                // Zoom ke lot yang diklik
-                map.fitBounds(layer.getBounds(), { maxZoom: 20 });
             });
             layer.bindPopup("<b>Lot:</b> " + feature.properties.NO_LOT);
         }
@@ -196,21 +200,18 @@
 
     function findLot() {
         var val = document.getElementById('inputSearchLot').value;
-        var found = false;
         lotLayer.eachLayer(function(l) {
             if(l.feature.properties.NO_LOT == val) {
-                map.fitBounds(l.getBounds(), { maxZoom: 21 }); // Zoom automatik ke tahap 21
+                map.fitBounds(l.getBounds(), { maxZoom: 20 }); // Zoom dekat ke lot dicari
                 l.openPopup();
                 showLotInfo(l.feature.properties);
-                found = true;
             }
         });
-        if(!found) alert("No Lot tidak dijumpai!");
     }
 
     function zoomAll() { map.fitBounds(lotLayer.getBounds()); }
 
-    // --- PDF GENERATOR ---
+    // --- PDF GENERATOR (FIXED LAYOUT) ---
     async function generateFullPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('p', 'mm', 'a4');
@@ -219,9 +220,15 @@
         if(noLot === "-") { alert("Pilih lot dahulu!"); return; }
 
         const mapArea = document.getElementById('map');
-        const mapCanvas = await html2canvas(mapArea, { useCORS: true });
-        const mapImg = mapCanvas.toDataURL('image/jpeg', 0.8);
+        
+        // Guna scale 2 untuk kualiti imej lebih tajam dalam PDF
+        const mapCanvas = await html2canvas(mapArea, { 
+            useCORS: true,
+            scale: 2 
+        });
+        const mapImg = mapCanvas.toDataURL('image/png'); // Tukar ke PNG
 
+        // Header Merah
         doc.setFillColor(183, 28, 28);
         doc.rect(0, 0, 210, 35, 'F');
         doc.setTextColor(255, 255, 255);
@@ -231,13 +238,15 @@
         doc.text("Taman Putra Harmoni Resident | Sistem GIS", 105, 23, {align: 'center'});
 
         doc.setTextColor(40, 40, 40);
-        doc.text("Tarikh: " + new Date().toLocaleDateString(), 15, 45);
-        doc.addImage(mapImg, 'JPEG', 15, 50, 180, 100);
+        doc.text("Tarikh: " + new Date().toLocaleDateString(), 20, 45);
+        
+        // FIXED: Laraskan lebar (170) dan margin kiri (20) supaya tidak terpotong
+        doc.addImage(mapImg, 'PNG', 20, 50, 170, 100); 
         
         doc.setFontSize(14);
-        doc.text("Ringkasan Maklumat Lot: " + noLot, 15, 165);
+        doc.text("Ringkasan Maklumat Lot: " + noLot, 20, 165); // Jarak teks diperbaiki
         doc.setFontSize(11);
-        doc.text("Keluasan: " + document.getElementById('val-area').innerText, 15, 175);
+        doc.text("Keluasan: " + document.getElementById('val-area').innerText, 20, 175);
         
         doc.save("Laporan_Lot_" + noLot + ".pdf");
     }
