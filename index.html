@@ -135,6 +135,7 @@
 <script src="data/LOTFINAL_0.js"></script>
 
 <script>
+    // Inisialisasi Peta
     var map = L.map('map', {
         zoomControl: false,
         maxZoom: 22,
@@ -165,9 +166,12 @@
         setTimeout(() => { map.invalidateSize(); }, 300);
     }
 
+    // Gaya Lot Asal
     function lotStyle(feature) {
         return { color: '#ffffff', weight: 1, fillColor: '#e74c3c', fillOpacity: 0.5 };
     }
+
+    var currentSelectedLayer = null;
 
     var lotLayer = L.geoJson(json_LOTFINAL_0, {
         style: lotStyle,
@@ -178,8 +182,6 @@
             layer.bindPopup("<b>Lot:</b> " + feature.properties.NO_LOT);
         }
     }).addTo(map);
-
-    var currentSelectedLayer = null;
 
     function selectLot(layer) {
         currentSelectedLayer = layer;
@@ -209,7 +211,7 @@
 
     function zoomAll() { map.fitBounds(lotLayer.getBounds()); }
 
-    // --- PDF GENERATOR (AUTO ZOOM & HIGHLIGHT) ---
+    // --- PDF GENERATOR (VERSI PENAMBAHBAIKAN) ---
     async function generateFullPDF() {
         const { jsPDF } = window.jspdf;
         const noLot = document.getElementById('val-lot').innerText;
@@ -219,45 +221,79 @@
             return; 
         }
 
-        // 1. Simpan view asal
+        // Simpan view asal
         const originalCenter = map.getCenter();
         const originalZoom = map.getZoom();
 
-        // 2. Zoom ke lot & highlight (Warna Kuning Terang)
-        map.fitBounds(currentSelectedLayer.getBounds(), { padding: [50, 50], maxZoom: 20 });
-        currentSelectedLayer.setStyle({fillColor: '#ffff00', fillOpacity: 0.9, color: '#000000', weight: 2});
+        // --- PEMBERSIHAN PETA UNTUK PDF ---
+        // 1. Sembunyikan butang zoom
+        document.querySelector('.leaflet-control-zoom').style.display = 'none';
+        // 2. Tutup Popup supaya tidak menghalang lot
+        map.closePopup(); 
 
-        // Tunggu sekejap untuk map render zoom baru
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // 3. Highlight lot kuning pekat & pudar lot lain
+        lotLayer.setStyle({ fillOpacity: 0.1, stroke: false }); 
+        currentSelectedLayer.setStyle({
+            fillColor: '#ffff00', 
+            fillOpacity: 1, 
+            color: '#000000', 
+            weight: 3
+        });
+
+        // 4. Zoom ke kawasan lot dengan padding
+        map.fitBounds(currentSelectedLayer.getBounds(), { 
+            padding: [80, 80], 
+            maxZoom: 19 
+        });
+
+        // Tunggu sebentar untuk render
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         const mapArea = document.getElementById('map');
-        const mapCanvas = await html2canvas(mapArea, { useCORS: true, scale: 2 });
+        const mapCanvas = await html2canvas(mapArea, { 
+            useCORS: true, 
+            scale: 2
+        });
         const mapImg = mapCanvas.toDataURL('image/png');
 
-        // 3. Kembalikan ke view asal & warna asal
+        // --- RESET PETA KE ASAL ---
+        document.querySelector('.leaflet-control-zoom').style.display = 'block';
+        lotLayer.setStyle(lotStyle);
+        currentSelectedLayer.setStyle({fillColor: '#f1c40f', fillOpacity: 0.8}); 
         map.setView(originalCenter, originalZoom);
-        currentSelectedLayer.setStyle({fillColor: '#f1c40f', fillOpacity: 0.8, color: '#ffffff', weight: 1});
 
-        // 4. Proses Bina PDF
+        // --- BINA PDF ---
         const doc = new jsPDF('p', 'mm', 'a4');
+        
+        // Header Merah
         doc.setFillColor(183, 28, 28);
         doc.rect(0, 0, 210, 35, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(18);
         doc.text("LAPORAN DATA LOT TANAH", 105, 15, {align: 'center'});
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.text("Taman Putra Harmoni Resident | Sistem GIS", 105, 23, {align: 'center'});
 
+        // Tarikh & Kandungan
         doc.setTextColor(40, 40, 40);
-        doc.text("Tarikh: " + new Date().toLocaleDateString(), 20, 45);
+        doc.setFontSize(10);
+        doc.text("Tarikh Laporan: " + new Date().toLocaleDateString('ms-MY'), 20, 45);
         
+        // Bingkai Peta
+        doc.setDrawColor(183, 28, 28);
+        doc.setLineWidth(0.5);
+        doc.rect(19, 49, 172, 102); 
         doc.addImage(mapImg, 'PNG', 20, 50, 170, 100); 
         
+        // Ringkasan Maklumat
         doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
         doc.text("Ringkasan Maklumat Lot: " + noLot, 20, 165);
+        
         doc.setFontSize(11);
-        doc.text("Keluasan: " + document.getElementById('val-area').innerText, 20, 175);
-        doc.text("Status: Lot telah disahkan dalam rekod GIS.", 20, 182);
+        doc.setFont(undefined, 'normal');
+        doc.text("Keluasan Lot  : " + document.getElementById('val-area').innerText, 20, 175);
+        doc.text("Status Tanah  : Lot telah disahkan dalam rekod GIS.", 20, 182);
         
         doc.save("Laporan_Lot_" + noLot + ".pdf");
     }
