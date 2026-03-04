@@ -17,7 +17,6 @@
         html, body { height: 100%; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; background: #121212; }
         #main-container { display: flex; flex-direction: column; height: 100vh; position: relative; }
         
-        /* Header Style - TUKAR KE MERAH */
         #header { 
             height: 60px; background: #b71c1c; color: white; display: flex; 
             align-items: center; justify-content: space-between; padding: 0 20px;
@@ -27,11 +26,9 @@
         .header-logo { height: 45px; background: white; border-radius: 6px; padding: 3px; }
         .header-text { font-size: 1.3rem; font-weight: bold; letter-spacing: 1px; }
 
-        /* Layout */
         #content-body { display: flex; flex: 1; overflow: hidden; position: relative; }
         #map { flex: 1; height: 100%; background: #242424; transition: all 0.3s ease; }
 
-        /* Sidebar Style - BOLEH TUTUP */
         #sidebar { 
             width: 350px; background: #1e272e; color: #ecf0f1; padding: 20px; 
             overflow-y: auto; display: flex; flex-direction: column; gap: 20px;
@@ -40,9 +37,8 @@
             position: relative;
             z-index: 1000;
         }
-        #sidebar.closed { margin-right: -350px; } /* Sembunyi ke kanan */
+        #sidebar.closed { margin-right: -350px; }
 
-        /* Toggle Button */
         #toggle-btn {
             position: absolute; top: 15px; right: 15px; 
             z-index: 1002; background: #c0392b; color: white;
@@ -58,7 +54,6 @@
             border-radius: 6px; border: none; background: #1e272e; color: white; box-sizing: border-box;
         }
 
-        /* Buttons - TEMA MERAH */
         .btn { 
             width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; 
             cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; transition: 0.3s;
@@ -68,7 +63,6 @@
         .btn-blue { background: #2980b9; color: white; }
         .btn:hover { filter: brightness(1.2); transform: scale(1.02); }
 
-        /* Result Boxes */
         .info-display { background: #1e272e; padding: 10px; border-radius: 8px; border-left: 5px solid #e74c3c; margin-top: 10px; }
         .info-tag { font-size: 0.7rem; color: #95a5a6; display: block; }
         .info-data { font-size: 1rem; font-weight: bold; color: #e74c3c; margin-top: 4px; }
@@ -141,28 +135,35 @@
 <script src="data/LOTFINAL_0.js"></script>
 
 <script>
-    // --- SETUP MAP ---
-    var map = L.map('map', {zoomControl: false}).setView([2.1038, 102.5218], 50);
+    // --- SETUP MAP DENGAN HIGH ZOOM SUPPORT ---
+    var map = L.map('map', {
+        zoomControl: false,
+        maxZoom: 22,    // Membenarkan zoom sehingga tahap 22
+        minZoom: 2
+    }).setView([2.1038, 102.5218], 18); // Set awal pada zoom 18 (dekat)
+
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
-    // Layers
+    // Layers dengan maxNativeZoom (Sangat Penting untuk zoom dekat)
     var satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        crossOrigin: 'anonymous'
+        crossOrigin: 'anonymous',
+        maxZoom: 22,        // Limit zoom di skrin
+        maxNativeZoom: 19   // Limit imej asal dari server (elak skrin kelabu)
     }).addTo(map);
 
     var strLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        crossOrigin: 'anonymous'
+        crossOrigin: 'anonymous',
+        maxZoom: 22,
+        maxNativeZoom: 19
     });
 
     function updateBaseLayer(val) {
         val === 'str' ? (map.removeLayer(satLayer), strLayer.addTo(map)) : (map.removeLayer(strLayer), satLayer.addTo(map));
     }
 
-    // --- SIDEBAR TOGGLE FUNCTION ---
     function toggleSidebar() {
         const sidebar = document.getElementById('sidebar');
         sidebar.classList.toggle('closed');
-        // Re-size map after sidebar animation
         setTimeout(() => { map.invalidateSize(); }, 300);
     }
 
@@ -176,9 +177,10 @@
         onEachFeature: function(feature, layer) {
             layer.on('click', function(e) {
                 showLotInfo(feature.properties);
-                // Highlight lot yang dipilih
                 lotLayer.setStyle(lotStyle); 
                 layer.setStyle({fillColor: '#f1c40f', fillOpacity: 0.8}); 
+                // Zoom ke lot yang diklik
+                map.fitBounds(layer.getBounds(), { maxZoom: 20 });
             });
             layer.bindPopup("<b>Lot:</b> " + feature.properties.NO_LOT);
         }
@@ -194,18 +196,21 @@
 
     function findLot() {
         var val = document.getElementById('inputSearchLot').value;
+        var found = false;
         lotLayer.eachLayer(function(l) {
             if(l.feature.properties.NO_LOT == val) {
-                map.fitBounds(l.getBounds());
+                map.fitBounds(l.getBounds(), { maxZoom: 21 }); // Zoom automatik ke tahap 21
                 l.openPopup();
                 showLotInfo(l.feature.properties);
+                found = true;
             }
         });
+        if(!found) alert("No Lot tidak dijumpai!");
     }
 
     function zoomAll() { map.fitBounds(lotLayer.getBounds()); }
 
-    // --- PDF GENERATOR (REMAINS RED THEMED) ---
+    // --- PDF GENERATOR ---
     async function generateFullPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('p', 'mm', 'a4');
@@ -217,7 +222,6 @@
         const mapCanvas = await html2canvas(mapArea, { useCORS: true });
         const mapImg = mapCanvas.toDataURL('image/jpeg', 0.8);
 
-        // Header Merah dalam PDF
         doc.setFillColor(183, 28, 28);
         doc.rect(0, 0, 210, 35, 'F');
         doc.setTextColor(255, 255, 255);
