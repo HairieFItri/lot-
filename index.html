@@ -152,26 +152,19 @@
 <script src="data/TITIKCLEANGABUNG_1.js"></script>
 
 <script>
-    // Inisialisasi Peta
-    var map = L.map('map', { 
-        zoomControl: false, 
-        maxZoom: 22,
-        preferCanvas: false // html2canvas lebih stabil dengan SVG (default Leaflet)
-    }).setView([2.1038, 102.5218], 18);
-    
+    // Variable Global untuk simpan data lot yang sedang dipilih
+    var selectedLotData = null;
+
+    var map = L.map('map', { zoomControl: false, maxZoom: 22 }).setView([2.1038, 102.5218], 18);
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
-    // Layer Satelit dengan crossOrigin diaktifkan untuk PDF
+    // Layer Satelit
     var satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        crossOrigin: 'anonymous', 
-        maxZoom: 22, 
-        maxNativeZoom: 19
+        crossOrigin: 'anonymous', maxZoom: 22, maxNativeZoom: 19
     }).addTo(map);
 
     var strLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        crossOrigin: 'anonymous', 
-        maxZoom: 22, 
-        maxNativeZoom: 19
+        crossOrigin: 'anonymous', maxZoom: 22, maxNativeZoom: 19
     });
 
     function updateBaseLayer(val) {
@@ -183,55 +176,40 @@
         setTimeout(() => { map.invalidateSize(); }, 300);
     }
 
-    // --- GAYA LOT TANAH ---
     function lotStyle(feature) {
         return { color: '#ffffff', weight: 1, fillColor: '#e74c3c', fillOpacity: 0.5 };
     }
 
+    // Layer Utama (Semua Lot)
     var lotLayer = L.geoJson(json_LOTFINAL_0, {
         style: lotStyle,
         onEachFeature: function(feature, layer) {
+            layer.on('click', function(e) {
+                selectThisLot(feature, layer);
+            });
+            
             layer.on('mouseover', function(e) {
-                this.setStyle({ weight: 3, color: '#f1c40f', fillOpacity: 0.7 });
                 var props = feature.properties;
                 var ownerName = props["tsp — pe"] || "TIADA MAKLUMAT";
-                
-                var tooltipContent = `
-                    <div style="text-align:center;">
-                        <b style="color:#e74c3c;">INFO LOT</b><br>
-                        <b>Lot:</b> ${props.NO_LOT}<br>
-                        <b>Pemilik:</b> <span style="color:#f1c40f">${ownerName}</span><br>
-                        <b>Luas:</b> ${props.AREA ? props.AREA.toFixed(2) : '0'} m²
-                    </div>
-                `;
-                layer.bindTooltip(tooltipContent, { sticky: true, direction: 'top', className: 'custom-tooltip' }).openTooltip();
-            });
-
-            layer.on('mouseout', function(e) {
-                lotLayer.resetStyle(this);
-                this.closeTooltip();
-            });
-
-            layer.on('click', function(e) {
-                showLotInfo(feature.properties);
-                lotLayer.setStyle(lotStyle); 
-                layer.setStyle({fillColor: '#f1c40f', fillOpacity: 0.8}); 
-                map.fitBounds(layer.getBounds(), { maxZoom: 20 });
+                layer.bindTooltip(`<b>Lot:</b> ${props.NO_LOT}<br><b>Pemilik:</b> ${ownerName}`, { sticky: true, className: 'custom-tooltip' }).openTooltip();
             });
         }
     }).addTo(map);
 
-    // --- TITIK SEMPADAN ---
+    // Titik Sempadan
     var boundaryPoints = L.geoJson(json_TITIKCLEANGABUNG_1, {
         pointToLayer: function (feature, latlng) {
-            return L.circleMarker(latlng, {
-                radius: 4, fillColor: "#ffff00", color: "#000", weight: 1, opacity: 1, fillOpacity: 0.8
-            });
-        },
-        onEachFeature: function (feature, layer) {
-            layer.bindTooltip("Batu Sempadan: " + (feature.properties.vertex_ind || "N/A"), { direction: 'top' });
+            return L.circleMarker(latlng, { radius: 4, fillColor: "#ffff00", color: "#000", weight: 1, fillOpacity: 0.8 });
         }
     }).addTo(map);
+
+    function selectThisLot(feature, layer) {
+        selectedLotData = feature; // Simpan feature untuk kegunaan PDF
+        showLotInfo(feature.properties);
+        lotLayer.setStyle(lotStyle); 
+        layer.setStyle({fillColor: '#f1c40f', fillOpacity: 0.8}); 
+        map.fitBounds(layer.getBounds(), { maxZoom: 20 });
+    }
 
     function toggleMainLayer() {
         document.getElementById('check-lot').checked ? map.addLayer(lotLayer) : map.removeLayer(lotLayer);
@@ -244,8 +222,7 @@
     function showLotInfo(props) {
         document.getElementById('val-lot').innerText = props.NO_LOT || '-';
         document.getElementById('val-area').innerText = props.AREA ? props.AREA.toFixed(2) + " m²" : '-';
-        var owner = props["tsp — pe"] || "TIADA MAKLUMAT";
-        document.getElementById('val-owner').innerText = owner;
+        document.getElementById('val-owner').innerText = props["tsp — pe"] || "TIADA MAKLUMAT";
         document.getElementById('inputSearchLot').value = props.NO_LOT;
     }
 
@@ -254,10 +231,7 @@
         var found = false;
         lotLayer.eachLayer(function(l) {
             if(l.feature.properties.NO_LOT == val) {
-                map.fitBounds(l.getBounds(), { maxZoom: 21 });
-                lotLayer.setStyle(lotStyle);
-                l.setStyle({fillColor: '#f1c40f', fillOpacity: 0.8});
-                showLotInfo(l.feature.properties);
+                selectThisLot(l.feature, l);
                 found = true;
             }
         });
@@ -266,84 +240,89 @@
 
     function zoomAll() { map.fitBounds(lotLayer.getBounds()); }
 
-    // --- REPAIR EXPORT PDF (FIX POSISI LARI) ---
+    // --- REPAIR: HANYA EXPORT LOT YANG DIPILIH ---
     async function generateFullPDF() {
         const { jsPDF } = window.jspdf;
         const noLot = document.getElementById('val-lot').innerText;
-        const owner = document.getElementById('val-owner').innerText;
-        const area = document.getElementById('val-area').innerText;
         const pdfBtn = document.getElementById('pdf-btn');
 
-        if(noLot === "-") { alert("Pilih lot dalam peta dahulu!"); return; }
+        if(noLot === "-" || !selectedLotData) { 
+            alert("Sila pilih satu lot di dalam peta terlebih dahulu!"); 
+            return; 
+        }
 
-        // Tukar status butang
+        // Disable butang & tunjuk loading
         pdfBtn.disabled = true;
-        pdfBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menjana PDF...';
+        pdfBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sedang Proses...';
+
+        // STEP 1: Sembunyikan semua layer kecuali Satelit
+        map.removeLayer(lotLayer);
+        if(map.hasLayer(boundaryPoints)) map.removeLayer(boundaryPoints);
+
+        // STEP 2: Tambah layer 'Highlight' sementara (HANYA LOT INI SAJA)
+        var singleLotLayer = L.geoJson(selectedLotData, {
+            style: { color: '#f1c40f', weight: 4, fillColor: '#f1c40f', fillOpacity: 0.4 }
+        }).addTo(map);
 
         try {
-            // Leaflet menggunakan CSS Transform (translate3d) yang buat html2canvas 'confused'
-            // Kita guna 'useCORS' dan 'logging' untuk debug jika perlu
+            // Beri masa sekejap untuk map 'settle'
+            await new Promise(r => setTimeout(r, 600));
+
             const canvas = await html2canvas(document.getElementById('map'), {
                 useCORS: true,
-                allowTaint: false,
-                scale: 2, // Kualiti gambar lebih tinggi
-                ignoreElements: (node) => {
-                    return node.classList.contains('leaflet-control-zoom');
-                }
+                scale: 2,
+                ignoreElements: (node) => node.classList.contains('leaflet-control-zoom')
             });
 
             const imgData = canvas.toDataURL('image/png');
             const doc = new jsPDF('p', 'mm', 'a4');
 
-            // -- Design PDF --
-            // Header Merah
+            // Design Header PDF
             doc.setFillColor(183, 28, 28);
             doc.rect(0, 0, 210, 35, 'F');
             doc.setTextColor(255, 255, 255);
-            doc.setFontSize(18);
-            doc.setFont("helvetica", "bold");
-            doc.text("LAPORAN DATA LOT TANAH", 105, 15, {align: 'center'});
+            doc.setFontSize(20);
+            doc.text("LAPORAN RASMI LOT TANAH", 105, 18, {align: 'center'});
             doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.text("Taman Putra Harmoni Resident", 105, 22, {align: 'center'});
+            doc.text("Taman Putra Harmoni Resident | Sistem GIS", 105, 26, {align: 'center'});
 
-            // Peta (Gambar)
+            // Masukkan Gambar Peta (Satelit + 1 Lot Kuning)
             doc.setDrawColor(183, 28, 28);
-            doc.setLineWidth(1);
-            doc.rect(14, 44, 182, 102); // Border frame
+            doc.setLineWidth(0.5);
+            doc.rect(14.5, 44.5, 181, 101); // Border luar
             doc.addImage(imgData, 'PNG', 15, 45, 180, 100);
 
-            // Kotak Info
+            // Kotak Info Maklumat
             doc.setFillColor(245, 245, 245);
-            doc.rect(15, 155, 180, 40, 'F');
+            doc.rect(15, 155, 180, 45, 'F');
             
-            doc.setTextColor(40, 40, 40);
-            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(14);
             doc.setFont("helvetica", "bold");
-            doc.text("MAKLUMAT PEMILIK & LOT", 20, 165);
+            doc.text("PERINCIAN MAKLUMAT:", 20, 165);
             
+            doc.setFontSize(12);
             doc.setFont("helvetica", "normal");
-            doc.text("No Lot    : " + noLot, 20, 175);
-            doc.text("Pemilik   : " + owner, 20, 182);
-            doc.text("Keluasan : " + area, 20, 189);
-
-            // Garisan bawah
-            doc.setDrawColor(200, 200, 200);
-            doc.line(15, 205, 195, 205);
+            doc.text("Nombor Lot    : " + noLot, 20, 175);
+            doc.text("Nama Pemilik : " + document.getElementById('val-owner').innerText, 20, 183);
+            doc.text("Luas Kawasan : " + document.getElementById('val-area').innerText, 20, 191);
 
             // Footer
-            doc.setFontSize(8);
-            doc.setTextColor(100, 100, 100);
-            const today = new Date().toLocaleString();
-            doc.text("Laporan dijana pada: " + today, 15, 280);
-            doc.text("Sistem Maklumat Geografi (GIS) - Putra Harmoni", 195, 280, {align: 'right'});
+            doc.setFontSize(9);
+            doc.setTextColor(150, 150, 150);
+            doc.text("Laporan ini dijana secara digital pada: " + new Date().toLocaleString(), 105, 285, {align: 'center'});
 
             doc.save("Laporan_Lot_" + noLot + ".pdf");
 
-        } catch (error) {
-            console.error("PDF Error: ", error);
-            alert("Gagal menjana PDF. Sila pastikan anda mempunyai akses internet.");
+        } catch (e) {
+            console.error(e);
+            alert("Ralat teknikal semasa export PDF.");
         } finally {
+            // STEP 3: Kembalikan keadaan asal peta
+            map.removeLayer(singleLotLayer);
+            if(document.getElementById('check-lot').checked) map.addLayer(lotLayer);
+            if(document.getElementById('check-boundary').checked) map.addLayer(boundaryPoints);
+            
             pdfBtn.disabled = false;
             pdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i> Export PDF';
         }
