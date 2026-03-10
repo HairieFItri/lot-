@@ -61,6 +61,7 @@
         .btn-outline { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; }
         .btn-blue { background: #2980b9; color: white; }
         .btn-green { background: #27ae60; color: white; }
+        .btn:hover { filter: brightness(1.2); transform: scale(1.02); }
 
         .info-display { background: #1e272e; padding: 10px; border-radius: 8px; border-left: 5px solid #e74c3c; margin-top: 10px; }
         .info-tag { font-size: 0.7rem; color: #95a5a6; display: block; }
@@ -85,33 +86,33 @@
 
         <div id="sidebar">
             <div>
-                <span class="section-label"><i class="fas fa-layer-group"></i> Layer Control</span>
+                <span class="section-label"><i class="fas fa-layer-group"></i> Kawalan Layer</span>
                 <div class="control-card">
-                    <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                        <input type="checkbox" id="check-lot" checked onchange="toggleMainLayer()"> Lot Tanah
+                    <label style="display:flex; align-items:center; gap:10px; margin-bottom:8px; cursor:pointer;">
+                        <input type="checkbox" id="check-lot" checked onchange="toggleMainLayer()"> Papar Lot Tanah
                     </label>
-                    <label style="display: flex; align-items: center; gap: 10px;">
-                        <input type="checkbox" id="check-boundary" checked onchange="toggleBoundary()"> Sempadan
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                        <input type="checkbox" id="check-boundary" checked onchange="toggleBoundary()"> Tanda Sempadan
                     </label>
                     <select onchange="updateBaseLayer(this.value)" style="margin-top: 15px;">
-                        <option value="sat">Satelit</option>
-                        <option value="str">Street Map</option>
+                        <option value="sat">Mod Satelit</option>
+                        <option value="str">Mod Jalan</option>
                     </select>
                 </div>
             </div>
 
             <div id="report-content">
-                <span class="section-label"><i class="fas fa-file-export"></i> Laporan & Pelan</span>
+                <span class="section-label"><i class="fas fa-print"></i> Eksport Laporan</span>
                 <div class="control-card">
                     <input type="text" id="inputSearchLot" placeholder="Cari No Lot...">
-                    <button class="btn btn-red" onclick="findLot()"><i class="fas fa-search"></i> Cari Lot</button>
+                    <button class="btn btn-red" onclick="findLot()"><i class="fas fa-search"></i> Cari & Zoom Lot</button>
                     
                     <div style="display: flex; gap: 5px;">
-                        <button class="btn btn-outline" style="flex: 1;" onclick="zoomAll()"><i class="fas fa-compress-arrows-alt"></i> Lihat Semua</button>
-                        <button id="master-pdf-btn" class="btn btn-green" style="flex: 1;" onclick="generateMasterPDF()"><i class="fas fa-print"></i> Pelan Induk</button>
+                        <button class="btn btn-outline" style="flex: 1;" onclick="zoomAll()"><i class="fas fa-compress-arrows-alt"></i> Zoom Semua</button>
+                        <button id="master-pdf-btn" class="btn btn-green" style="flex: 1;" onclick="generateMasterPDF()"><i class="fas fa-map"></i> Pelan Induk</button>
                     </div>
 
-                    <button id="pdf-btn" class="btn btn-blue" onclick="generateFullPDF()"><i class="fas fa-file-pdf"></i> Export Lot Terpilih</button>
+                    <button id="pdf-btn" class="btn btn-blue" onclick="generateFullPDF()"><i class="fas fa-file-pdf"></i> PDF Lot Terpilih</button>
                 </div>
 
                 <div class="control-card" id="info-panel" style="border-top: 3px solid #e74c3c;">
@@ -132,6 +133,7 @@
     var selectedLotData = null;
     var highlightLayer = null;
 
+    // 1. Initalize Map
     var map = L.map('map', { zoomControl: false, maxZoom: 22 }).setView([2.1038, 102.5218], 18);
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
@@ -152,6 +154,7 @@
         setTimeout(() => { map.invalidateSize(); }, 300);
     }
 
+    // 2. Load Layers
     var lotLayer = L.geoJson(json_LOTFINAL_0, {
         style: { color: '#ffffff', weight: 1.5, fillColor: '#e74c3c', fillOpacity: 0.5 },
         onEachFeature: function(feature, layer) {
@@ -172,12 +175,14 @@
         document.getElementById('val-area').innerText = feature.properties.AREA ? feature.properties.AREA.toFixed(2) + " m²" : '-';
         
         if(highlightLayer) map.removeLayer(highlightLayer);
-        highlightLayer = L.geoJson(feature, { style: { color: '#ffff00', weight: 5, fillColor: '#ffff00', fillOpacity: 0.3 } }).addTo(map);
+        highlightLayer = L.geoJson(feature, { 
+            style: { color: '#ffff00', weight: 5, fillColor: '#ffff00', fillOpacity: 0.3 } 
+        }).addTo(map);
         map.fitBounds(layer.getBounds(), { padding: [50, 50] });
     }
 
     function zoomAll() { 
-        map.fitBounds(lotLayer.getBounds(), { padding: [30, 30] }); 
+        map.fitBounds(lotLayer.getBounds(), { padding: [40, 40] }); 
     }
 
     function toggleMainLayer() { document.getElementById('check-lot').checked ? map.addLayer(lotLayer) : map.removeLayer(lotLayer); }
@@ -190,80 +195,100 @@
         });
     }
 
-    // --- REPAIR: MASTER PLAN CENTERED ---
+    // --- FUNGSI MASTER PDF (AUTO-CENTER & FULL VIEW) ---
     async function generateMasterPDF() {
         const { jsPDF } = window.jspdf;
         const btn = document.getElementById('master-pdf-btn');
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Centering...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses Pelan...';
 
-        // 1. PAKSA CENTER KE SELURUH DATA
+        // Langkah 1: Paksa map nampak SEMUA lot dengan padding luas
         map.invalidateSize();
-        map.fitBounds(lotLayer.getBounds(), { padding: [20, 20], animate: false });
+        var bounds = lotLayer.getBounds();
+        map.fitBounds(bounds, { padding: [60, 60], animate: false });
         
         if(highlightLayer) map.removeLayer(highlightLayer);
 
         try {
-            // Tunggu kejap bagi tiles loading habis
-            await new Promise(r => setTimeout(r, 2000));
+            // Langkah 2: Tunggu tile satelit loading (3 saat)
+            await new Promise(r => setTimeout(r, 3000));
 
             const canvas = await html2canvas(document.getElementById('map'), {
-                useCORS: true, 
-                scale: 2,
-                logging: false
+                useCORS: true, scale: 2, logging: false
             });
 
             const imgData = canvas.toDataURL('image/png');
-            const doc = new jsPDF('l', 'mm', 'a4'); // 'l' = Landscape (Melintang)
+            const doc = new jsPDF('l', 'mm', 'a4'); // LANDSCAPE
 
-            // Header Merah
+            // Design Header
             doc.setFillColor(183, 28, 28);
             doc.rect(0, 0, 297, 25, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(20);
-            doc.text("PELAN INDUK KESELURUHAN: TAMAN PUTRA HARMONI", 148.5, 15, {align: 'center'});
+            doc.setFont("helvetica", "bold");
+            doc.text("PELAN INDUK KESELURUHAN: TAMAN PUTRA HARMONI", 148.5, 16, {align: 'center'});
 
-            // Frame & Gambar (CENTERED)
-            // Saiz A4 Landscape: 297mm x 210mm
-            // Kita letak gambar saiz 260mm x 150mm supaya duduk tengah
+            // Bingkai & Gambar Peta (Centered)
             doc.setDrawColor(0, 0, 0);
-            doc.rect(18, 33, 262, 152); // Border luar
-            doc.addImage(imgData, 'PNG', 19, 34, 260, 150);
+            doc.setLineWidth(0.5);
+            doc.rect(9.5, 29.5, 278, 156); 
+            doc.addImage(imgData, 'PNG', 10, 30, 277, 155);
 
-            // Info Bawah
-            doc.setTextColor(80, 80, 80);
+            // Footer
+            doc.setTextColor(100, 100, 100);
             doc.setFontSize(10);
-            doc.text("Dijana pada: " + new Date().toLocaleString(), 19, 195);
-            doc.text("Sistem Pengurusan GIS Resident", 278, 195, {align: 'right'});
+            doc.setFont("helvetica", "normal");
+            doc.text("Dijana pada: " + new Date().toLocaleString(), 10, 195);
+            doc.text("Sistem Pengurusan GIS Taman Putra Harmoni", 287, 195, {align: 'right'});
 
-            doc.save("Pelan_Induk_Center.pdf");
+            doc.save("Pelan_Induk_Full.pdf");
 
         } catch (e) {
-            alert("Ralat!");
+            alert("Ralat menjana PDF!");
         } finally {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-print"></i> Pelan Induk';
+            btn.innerHTML = '<i class="fas fa-map"></i> Pelan Induk';
             if(selectedLotData && highlightLayer) map.addLayer(highlightLayer);
         }
     }
 
+    // --- FUNGSI PDF LOT TERPILIH ---
     async function generateFullPDF() {
-        // (Fungsi lot terpilih kekal sama)
         const { jsPDF } = window.jspdf;
         const noLot = document.getElementById('val-lot').innerText;
-        if(noLot === "-") { alert("Pilih lot!"); return; }
+        if(noLot === "-") { alert("Sila pilih lot di atas peta!"); return; }
+
         const btn = document.getElementById('pdf-btn');
         btn.disabled = true;
-        map.flyToBounds(highlightLayer.getBounds(), { padding: [80, 80], animate: false });
-        await new Promise(r => setTimeout(r, 1200));
-        const canvas = await html2canvas(document.getElementById('map'), { useCORS: true, scale: 2 });
-        const imgData = canvas.toDataURL('image/png');
-        const doc = new jsPDF('p', 'mm', 'a4');
-        doc.setFillColor(183, 28, 28); doc.rect(0, 0, 210, 30, 'F');
-        doc.setTextColor(255, 255, 255); doc.text("LOT: " + noLot, 105, 15, {align: 'center'});
-        doc.addImage(imgData, 'PNG', 15, 40, 180, 100);
-        doc.save("Lot_" + noLot + ".pdf");
-        btn.disabled = false;
+
+        map.flyToBounds(highlightLayer.getBounds(), { padding: [100, 100], animate: false });
+
+        try {
+            await new Promise(r => setTimeout(r, 2000));
+            const canvas = await html2canvas(document.getElementById('map'), { useCORS: true, scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            const doc = new jsPDF('p', 'mm', 'a4');
+
+            doc.setFillColor(183, 28, 28);
+            doc.rect(0, 0, 210, 30, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(16);
+            doc.text("LAPORAN LOT: " + noLot, 105, 15, {align: 'center'});
+            
+            doc.addImage(imgData, 'PNG', 15, 40, 180, 100);
+            
+            doc.setFillColor(245, 245, 245);
+            doc.rect(15, 150, 180, 40, 'F');
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(12);
+            doc.text("No Lot: " + noLot, 20, 165);
+            doc.text("Pemilik: " + document.getElementById('val-owner').innerText, 20, 175);
+            doc.text("Luas: " + document.getElementById('val-area').innerText, 20, 185);
+
+            doc.save("Laporan_Lot_" + noLot + ".pdf");
+        } finally {
+            btn.disabled = false;
+        }
     }
 </script>
 </body>
