@@ -53,6 +53,9 @@
             border-radius: 6px; border: none; background: #1e272e; color: white; box-sizing: border-box;
         }
 
+        .layer-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; cursor: pointer; font-size: 0.9rem; }
+        .layer-item input { cursor: pointer; accent-color: #e74c3c; width: 18px; height: 18px; }
+
         .btn { 
             width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; 
             cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; transition: 0.3s;
@@ -60,12 +63,23 @@
         .btn-red { background: #c0392b; color: white; }
         .btn-outline { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; }
         .btn-blue { background: #2980b9; color: white; }
-        .btn-green { background: #27ae60; color: white; }
         .btn:hover { filter: brightness(1.2); transform: scale(1.02); }
+        .btn:disabled { background: #7f8c8d; cursor: not-allowed; }
 
         .info-display { background: #1e272e; padding: 10px; border-radius: 8px; border-left: 5px solid #e74c3c; margin-top: 10px; }
         .info-tag { font-size: 0.7rem; color: #95a5a6; display: block; }
         .info-data { font-size: 1rem; font-weight: bold; color: #e74c3c; margin-top: 4px; text-transform: uppercase; }
+
+        .custom-tooltip {
+            background: #2f3640 !important;
+            color: #ffffff !important;
+            border: 2px solid #e74c3c !important;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 13px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            opacity: 1 !important;
+        }
     </style>
 </head>
 <body>
@@ -79,46 +93,54 @@
         <div style="opacity: 0.8; font-size: 0.8rem;"><i class="fas fa-user-shield"></i> Admin Panel</div>
     </div>
 
-    <button id="toggle-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+    <button id="toggle-btn" onclick="toggleSidebar()">
+        <i class="fas fa-bars"></i>
+    </button>
 
     <div id="content-body">
         <div id="map"></div>
 
         <div id="sidebar">
             <div>
-                <span class="section-label"><i class="fas fa-layer-group"></i> Kawalan Layer</span>
+                <span class="section-label"><i class="fas fa-layer-group"></i> Pengurusan Layer</span>
                 <div class="control-card">
-                    <label style="display:flex; align-items:center; gap:10px; margin-bottom:8px; cursor:pointer;">
-                        <input type="checkbox" id="check-lot" checked onchange="toggleMainLayer()"> Papar Lot Tanah
+                    <label class="layer-item">
+                        <input type="checkbox" id="check-lot" checked onchange="toggleMainLayer()"> Paparkan Lot Tanah
                     </label>
-                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                    <label class="layer-item">
                         <input type="checkbox" id="check-boundary" checked onchange="toggleBoundary()"> Tanda Sempadan
                     </label>
-                    <select onchange="updateBaseLayer(this.value)" style="margin-top: 15px;">
-                        <option value="sat">Mod Satelit</option>
-                        <option value="str">Mod Jalan</option>
+                    <hr style="border: 0.5px solid #3d3d3d; margin: 10px 0;">
+                    <label style="font-size: 0.8rem;">Mod Peta:</label>
+                    <select onchange="updateBaseLayer(this.value)">
+                        <option value="sat">Satelit (Hybrid)</option>
+                        <option value="str">Peta Jalan</option>
                     </select>
                 </div>
             </div>
 
             <div id="report-content">
-                <span class="section-label"><i class="fas fa-print"></i> Eksport Laporan</span>
+                <span class="section-label"><i class="fas fa-search-location"></i> Carian & Info Lot</span>
                 <div class="control-card">
-                    <input type="text" id="inputSearchLot" placeholder="Cari No Lot...">
-                    <button class="btn btn-red" onclick="findLot()"><i class="fas fa-search"></i> Cari & Zoom Lot</button>
-                    
-                    <div style="display: flex; gap: 5px;">
-                        <button class="btn btn-outline" style="flex: 1;" onclick="zoomAll()"><i class="fas fa-compress-arrows-alt"></i> Zoom Semua</button>
-                        <button id="master-pdf-btn" class="btn btn-green" style="flex: 1;" onclick="generateMasterPDF()"><i class="fas fa-map"></i> Pelan Induk</button>
-                    </div>
-
-                    <button id="pdf-btn" class="btn btn-blue" onclick="generateFullPDF()"><i class="fas fa-file-pdf"></i> PDF Lot Terpilih</button>
+                    <input type="text" id="inputSearchLot" placeholder="Masukkan No Lot...">
+                    <button class="btn btn-red" onclick="findLot()"><i class="fas fa-search"></i> Cari Sekarang</button>
+                    <button class="btn btn-outline" onclick="zoomAll()"><i class="fas fa-compress-arrows-alt"></i> Lihat Semua</button>
+                    <button id="pdf-btn" class="btn btn-blue" onclick="generateFullPDF()"><i class="fas fa-file-pdf"></i> Export PDF</button>
                 </div>
 
                 <div class="control-card" id="info-panel" style="border-top: 3px solid #e74c3c;">
-                    <div class="info-display"><span class="info-tag">NO. LOT</span><div class="info-data" id="val-lot">-</div></div>
-                    <div class="info-display"><span class="info-tag">PEMILIK</span><div class="info-data" id="val-owner">-</div></div>
-                    <div class="info-display"><span class="info-tag">LUAS</span><div class="info-data" id="val-area">-</div></div>
+                    <div class="info-display">
+                        <span class="info-tag">NO. LOT</span>
+                        <div class="info-data" id="val-lot">-</div>
+                    </div>
+                    <div class="info-display">
+                        <span class="info-tag">NAMA PEMILIK</span>
+                        <div class="info-data" id="val-owner">-</div>
+                    </div>
+                    <div class="info-display">
+                        <span class="info-tag">KELUASAN</span>
+                        <div class="info-data" id="val-area">-</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -133,10 +155,11 @@
     var selectedLotData = null;
     var highlightLayer = null;
 
-    // 1. Initalize Map
+    // Initialize Map
     var map = L.map('map', { zoomControl: false, maxZoom: 22 }).setView([2.1038, 102.5218], 18);
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
+    // Base Layers
     var satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         crossOrigin: 'anonymous', maxZoom: 22, maxNativeZoom: 19
     }).addTo(map);
@@ -154,140 +177,152 @@
         setTimeout(() => { map.invalidateSize(); }, 300);
     }
 
-    // 2. Load Layers
+    // Default Lot Style
+    function lotStyle(feature) {
+        return { color: '#ffffff', weight: 1, fillColor: '#e74c3c', fillOpacity: 0.4 };
+    }
+
+    // Load Main Lot Layer
     var lotLayer = L.geoJson(json_LOTFINAL_0, {
-        style: { color: '#ffffff', weight: 1.5, fillColor: '#e74c3c', fillOpacity: 0.5 },
+        style: lotStyle,
         onEachFeature: function(feature, layer) {
-            layer.on('click', function() { selectThisLot(feature, layer); });
+            layer.on('click', function(e) {
+                selectThisLot(feature, layer);
+            });
+            layer.on('mouseover', function(e) {
+                var props = feature.properties;
+                var ownerName = props["tsp — pe"] || "TIADA MAKLUMAT";
+                layer.bindTooltip(`<b>Lot:</b> ${props.NO_LOT}<br><b>Pemilik:</b> ${ownerName}`, { sticky: true, className: 'custom-tooltip' }).openTooltip();
+            });
         }
     }).addTo(map);
 
+    // Load Boundary Points
     var boundaryPoints = L.geoJson(json_TITIKCLEANGABUNG_1, {
         pointToLayer: function (feature, latlng) {
-            return L.circleMarker(latlng, { radius: 3, fillColor: "#ffff00", color: "#000", weight: 1, fillOpacity: 0.8 });
+            return L.circleMarker(latlng, { radius: 4, fillColor: "#ffff00", color: "#000", weight: 1, fillOpacity: 0.8 });
         }
     }).addTo(map);
 
+    // Function Select Lot
     function selectThisLot(feature, layer) {
         selectedLotData = feature;
-        document.getElementById('val-lot').innerText = feature.properties.NO_LOT || '-';
-        document.getElementById('val-owner').innerText = feature.properties["tsp — pe"] || "TIADA MAKLUMAT";
-        document.getElementById('val-area').innerText = feature.properties.AREA ? feature.properties.AREA.toFixed(2) + " m²" : '-';
+        showLotInfo(feature.properties);
         
         if(highlightLayer) map.removeLayer(highlightLayer);
-        highlightLayer = L.geoJson(feature, { 
-            style: { color: '#ffff00', weight: 5, fillColor: '#ffff00', fillOpacity: 0.3 } 
+        
+        highlightLayer = L.geoJson(feature, {
+            style: { color: '#ffff00', weight: 4, fillColor: '#ffff00', fillOpacity: 0.3 }
         }).addTo(map);
+
         map.fitBounds(layer.getBounds(), { padding: [50, 50] });
     }
 
-    function zoomAll() { 
-        map.fitBounds(lotLayer.getBounds(), { padding: [40, 40] }); 
+    function toggleMainLayer() {
+        document.getElementById('check-lot').checked ? map.addLayer(lotLayer) : map.removeLayer(lotLayer);
     }
 
-    function toggleMainLayer() { document.getElementById('check-lot').checked ? map.addLayer(lotLayer) : map.removeLayer(lotLayer); }
-    function toggleBoundary() { document.getElementById('check-boundary').checked ? map.addLayer(boundaryPoints) : map.removeLayer(boundaryPoints); }
+    function toggleBoundary() {
+        document.getElementById('check-boundary').checked ? map.addLayer(boundaryPoints) : map.removeLayer(boundaryPoints);
+    }
+
+    function showLotInfo(props) {
+        document.getElementById('val-lot').innerText = props.NO_LOT || '-';
+        document.getElementById('val-area').innerText = props.AREA ? props.AREA.toFixed(2) + " m²" : '-';
+        document.getElementById('val-owner').innerText = props["tsp — pe"] || "TIADA MAKLUMAT";
+        document.getElementById('inputSearchLot').value = props.NO_LOT;
+    }
 
     function findLot() {
         var val = document.getElementById('inputSearchLot').value.toUpperCase();
+        var found = false;
         lotLayer.eachLayer(function(l) {
-            if(l.feature.properties.NO_LOT == val) selectThisLot(l.feature, l);
+            if(l.feature.properties.NO_LOT == val) {
+                selectThisLot(l.feature, l);
+                found = true;
+            }
         });
+        if(!found) alert("No Lot tidak dijumpai!");
     }
 
-    // --- FUNGSI MASTER PDF (AUTO-CENTER & FULL VIEW) ---
-    async function generateMasterPDF() {
-        const { jsPDF } = window.jspdf;
-        const btn = document.getElementById('master-pdf-btn');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses Pelan...';
+    function zoomAll() { map.fitBounds(lotLayer.getBounds()); }
 
-        // Langkah 1: Paksa map nampak SEMUA lot dengan padding luas
-        map.invalidateSize();
-        var bounds = lotLayer.getBounds();
-        map.fitBounds(bounds, { padding: [60, 60], animate: false });
-        
-        if(highlightLayer) map.removeLayer(highlightLayer);
-
-        try {
-            // Langkah 2: Tunggu tile satelit loading (3 saat)
-            await new Promise(r => setTimeout(r, 3000));
-
-            const canvas = await html2canvas(document.getElementById('map'), {
-                useCORS: true, scale: 2, logging: false
-            });
-
-            const imgData = canvas.toDataURL('image/png');
-            const doc = new jsPDF('l', 'mm', 'a4'); // LANDSCAPE
-
-            // Design Header
-            doc.setFillColor(183, 28, 28);
-            doc.rect(0, 0, 297, 25, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(20);
-            doc.setFont("helvetica", "bold");
-            doc.text("PELAN INDUK KESELURUHAN: TAMAN PUTRA HARMONI", 148.5, 16, {align: 'center'});
-
-            // Bingkai & Gambar Peta (Centered)
-            doc.setDrawColor(0, 0, 0);
-            doc.setLineWidth(0.5);
-            doc.rect(9.5, 29.5, 278, 156); 
-            doc.addImage(imgData, 'PNG', 10, 30, 277, 155);
-
-            // Footer
-            doc.setTextColor(100, 100, 100);
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.text("Dijana pada: " + new Date().toLocaleString(), 10, 195);
-            doc.text("Sistem Pengurusan GIS Taman Putra Harmoni", 287, 195, {align: 'right'});
-
-            doc.save("Pelan_Induk_Full.pdf");
-
-        } catch (e) {
-            alert("Ralat menjana PDF!");
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-map"></i> Pelan Induk';
-            if(selectedLotData && highlightLayer) map.addLayer(highlightLayer);
-        }
-    }
-
-    // --- FUNGSI PDF LOT TERPILIH ---
+    // --- REPAIR: CENTERED PDF EXPORT ---
     async function generateFullPDF() {
         const { jsPDF } = window.jspdf;
         const noLot = document.getElementById('val-lot').innerText;
-        if(noLot === "-") { alert("Sila pilih lot di atas peta!"); return; }
+        const pdfBtn = document.getElementById('pdf-btn');
 
-        const btn = document.getElementById('pdf-btn');
-        btn.disabled = true;
+        if(noLot === "-" || !selectedLotData) { 
+            alert("Sila pilih lot dulu!"); 
+            return; 
+        }
 
+        pdfBtn.disabled = true;
+        pdfBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Centering Lot...';
+
+        // 1. PAKSA PETA KE TENGAH (CENTER)
         map.flyToBounds(highlightLayer.getBounds(), { padding: [100, 100], animate: false });
 
+        // 2. SEMBUNYIKAN LAYER LAIN BIAR NAMPAK KEMAS
+        map.removeLayer(lotLayer);
+        if(map.hasLayer(boundaryPoints)) map.removeLayer(boundaryPoints);
+        
+        // 3. TEBALKAN HIGHLIGHT UNTUK PDF
+        highlightLayer.setStyle({ weight: 10, color: '#ffff00', fillOpacity: 0.1 });
+
         try {
-            await new Promise(r => setTimeout(r, 2000));
-            const canvas = await html2canvas(document.getElementById('map'), { useCORS: true, scale: 2 });
+            // Tunggu kejap bagi map settle
+            await new Promise(r => setTimeout(r, 1200));
+
+            const canvas = await html2canvas(document.getElementById('map'), {
+                useCORS: true,
+                scale: 2,
+                ignoreElements: (node) => node.classList.contains('leaflet-control-zoom')
+            });
+
             const imgData = canvas.toDataURL('image/png');
             const doc = new jsPDF('p', 'mm', 'a4');
 
+            // Header Merah
             doc.setFillColor(183, 28, 28);
-            doc.rect(0, 0, 210, 30, 'F');
+            doc.rect(0, 0, 210, 35, 'F');
             doc.setTextColor(255, 255, 255);
-            doc.setFontSize(16);
-            doc.text("LAPORAN LOT: " + noLot, 105, 15, {align: 'center'});
-            
-            doc.addImage(imgData, 'PNG', 15, 40, 180, 100);
-            
+            doc.setFontSize(20);
+            doc.text("LAPORAN LOT: " + noLot, 105, 18, {align: 'center'});
+            doc.setFontSize(10);
+            doc.text("Taman Putra Harmoni Resident | Sistem GIS", 105, 26, {align: 'center'});
+
+            // Gambar Peta Center
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.5);
+            doc.rect(14.5, 44.5, 181, 101); 
+            doc.addImage(imgData, 'PNG', 15, 45, 180, 100);
+
+            // Kotak Info
             doc.setFillColor(245, 245, 245);
-            doc.rect(15, 150, 180, 40, 'F');
+            doc.rect(15, 155, 180, 45, 'F');
             doc.setTextColor(0, 0, 0);
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.text("PERINCIAN:", 20, 165);
             doc.setFontSize(12);
-            doc.text("No Lot: " + noLot, 20, 165);
-            doc.text("Pemilik: " + document.getElementById('val-owner').innerText, 20, 175);
-            doc.text("Luas: " + document.getElementById('val-area').innerText, 20, 185);
+            doc.setFont("helvetica", "normal");
+            doc.text("No Lot    : " + noLot, 20, 175);
+            doc.text("Pemilik   : " + document.getElementById('val-owner').innerText, 20, 183);
+            doc.text("Keluasan : " + document.getElementById('val-area').innerText, 20, 191);
 
             doc.save("Laporan_Lot_" + noLot + ".pdf");
+
+        } catch (e) {
+            alert("Ralat!");
         } finally {
-            btn.disabled = false;
+            // Letak balik layer asal
+            highlightLayer.setStyle({ weight: 4, color: '#ffff00', fillOpacity: 0.3 });
+            if(document.getElementById('check-lot').checked) map.addLayer(lotLayer);
+            if(document.getElementById('check-boundary').checked) map.addLayer(boundaryPoints);
+            pdfBtn.disabled = false;
+            pdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i> Export PDF';
         }
     }
 </script>
