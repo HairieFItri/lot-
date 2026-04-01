@@ -1,187 +1,46 @@
-<script>
-    // Guna setting ini untuk pastikan polygon & satelit dalam satu layer yang sama (lebih stabil untuk PDF)
-    window.L_PREFER_CANVAS = true; 
-
-    var selectedLotData = null;
-    var highlightLayer = null;
-
-    // Initialize Map
-    var map = L.map('map', { 
-        zoomControl: false, 
-        maxZoom: 22,
-        renderer: L.canvas() // Memastikan lukisan polygon guna canvas bukan SVG
-    }).setView([2.1038, 102.5218], 18);
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sistem GIS Taman Putra Harmoni</title>
+    <meta charset="utf-8" />
     
-    L.control.zoom({ position: 'bottomleft' }).addTo(map);
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        /* Pastikan ada height untuk map, kalau tak dia kosong */
+        #map { height: 100vh; width: 100%; }
+        #sidebar { position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.2); width: 250px; }
+        .closed { display: none; }
+        /* Tambah CSS lain mengikut keperluan sidebar anda */
+    </style>
+</head>
+<body>
 
-    // Base Layers
-    var satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        crossOrigin: 'anonymous', 
-        maxZoom: 22, 
-        maxNativeZoom: 19
-    }).addTo(map);
+    <div id="sidebar">
+        <h3>Info Lot</h3>
+        <p>No Lot: <span id="val-lot">-</span></p>
+        <p>Keluasan: <span id="val-area">-</span></p>
+        <p>Pemilik: <span id="val-owner">-</span></p>
+        <input type="text" id="inputSearchLot" placeholder="Cari No Lot...">
+        <button onclick="findLot()">Cari</button>
+        <hr>
+        <button id="pdf-btn" onclick="generateFullPDF()">Export PDF</button>
+    </div>
 
-    var strLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        crossOrigin: 'anonymous', 
-        maxZoom: 22, 
-        maxNativeZoom: 19
-    });
+    <div id="map"></div>
 
-    function updateBaseLayer(val) {
-        val === 'str' ? (map.removeLayer(satLayer), strLayer.addTo(map)) : (map.removeLayer(strLayer), satLayer.addTo(map));
-    }
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    function toggleSidebar() {
-        document.getElementById('sidebar').classList.toggle('closed');
-        setTimeout(() => { map.invalidateSize(); }, 300);
-    }
+    <script>
+        // PENTING: Anda kena pastikan data ini ada atau gantikan dengan [] jika kosong
+        var json_LOTFINAL_0 = { "type": "FeatureCollection", "features": [] }; 
+        var json_TITIKCLEANGABUNG_1 = { "type": "FeatureCollection", "features": [] };
 
-    function lotStyle(feature) {
-        return { color: '#ffffff', weight: 1, fillColor: '#e74c3c', fillOpacity: 0.4 };
-    }
-
-    var lotLayer = L.geoJson(json_LOTFINAL_0, {
-        style: lotStyle,
-        onEachFeature: function(feature, layer) {
-            layer.on('click', function(e) {
-                selectThisLot(feature, layer);
-            });
-            layer.on('mouseover', function(e) {
-                var props = feature.properties;
-                var ownerName = props["tsp — pe"] || "TIADA MAKLUMAT";
-                layer.bindTooltip(`<b>Lot:</b> ${props.NO_LOT}<br><b>Pemilik:</b> ${ownerName}`, { sticky: true, className: 'custom-tooltip' }).openTooltip();
-            });
-        }
-    }).addTo(map);
-
-    var boundaryPoints = L.geoJson(json_TITIKCLEANGABUNG_1, {
-        pointToLayer: function (feature, latlng) {
-            return L.circleMarker(latlng, { radius: 4, fillColor: "#ffff00", color: "#000", weight: 1, fillOpacity: 0.8 });
-        }
-    }).addTo(map);
-
-    function selectThisLot(feature, layer) {
-        selectedLotData = feature;
-        showLotInfo(feature.properties);
-        
-        if(highlightLayer) map.removeLayer(highlightLayer);
-        
-        highlightLayer = L.geoJson(feature, {
-            style: { color: '#ffff00', weight: 4, fillColor: '#ffff00', fillOpacity: 0.3 }
-        }).addTo(map);
-
-        map.fitBounds(layer.getBounds(), { padding: [50, 50] });
-    }
-
-    function toggleMainLayer() {
-        document.getElementById('check-lot').checked ? map.addLayer(lotLayer) : map.removeLayer(lotLayer);
-    }
-
-    function toggleBoundary() {
-        document.getElementById('check-boundary').checked ? map.addLayer(boundaryPoints) : map.removeLayer(boundaryPoints);
-    }
-
-    function showLotInfo(props) {
-        document.getElementById('val-lot').innerText = props.NO_LOT || '-';
-        document.getElementById('val-area').innerText = props.AREA ? props.AREA.toFixed(2) + " m²" : '-';
-        document.getElementById('val-owner').innerText = props["tsp — pe"] || "TIADA MAKLUMAT";
-        document.getElementById('inputSearchLot').value = props.NO_LOT;
-    }
-
-    function findLot() {
-        var val = document.getElementById('inputSearchLot').value.toUpperCase();
-        var found = false;
-        lotLayer.eachLayer(function(l) {
-            if(l.feature.properties.NO_LOT == val) {
-                selectThisLot(l.feature, l);
-                found = true;
-            }
-        });
-        if(!found) alert("No Lot tidak dijumpai!");
-    }
-
-    function zoomAll() { map.fitBounds(lotLayer.getBounds()); }
-
-    // --- FUNGSI EXPORT PDF YANG TELAH DIPERBAIKI ---
-    async function generateFullPDF() {
-        const { jsPDF } = window.jspdf;
-        const noLot = document.getElementById('val-lot').innerText;
-        const pdfBtn = document.getElementById('pdf-btn');
-
-        if(noLot === "-" || !selectedLotData) { 
-            alert("Sila pilih lot dulu!"); 
-            return; 
-        }
-
-        pdfBtn.disabled = true;
-        pdfBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-
-        // 1. Fokus ke Lot & pastikan peta 'diam'
-        map.flyToBounds(highlightLayer.getBounds(), { padding: [100, 100], animate: false });
-
-        // 2. Teknikal: Matikan animasi & tunggu Tiles Load sepenuhnya
-        await new Promise(r => setTimeout(r, 1500)); 
-
-        try {
-            // 3. Guna html2canvas pada element Map
-            // Menggunakan logging: true untuk debug jika perlu
-            const canvas = await html2canvas(document.getElementById('map'), {
-                useCORS: true,
-                scale: 2,
-                backgroundColor: null,
-                logging: false,
-                ignoreElements: (node) => node.classList.contains('leaflet-control-zoom') || node.classList.contains('leaflet-control-attribution')
-            });
-
-            const imgData = canvas.toDataURL('image/png');
-            const doc = new jsPDF('p', 'mm', 'a4');
-
-            // Header Laporan
-            doc.setFillColor(183, 28, 28);
-            doc.rect(0, 0, 210, 35, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(18);
-            doc.text("LAPORAN MAKLUMAT LOT TANAH", 105, 18, {align: 'center'});
-            doc.setFontSize(10);
-            doc.text("TAMAN PUTRA HARMONI RESIDENT", 105, 26, {align: 'center'});
-
-            // Bingkai Peta
-            doc.setDrawColor(183, 28, 28);
-            doc.setLineWidth(1);
-            doc.rect(14, 44, 182, 102); 
-            
-            // Masukkan Gambar Peta (Satelit + Polygon akan melekat sekali)
-            doc.addImage(imgData, 'PNG', 15, 45, 180, 100);
-
-            // Kotak Maklumat
-            doc.setFillColor(245, 245, 245);
-            doc.rect(15, 155, 180, 50, 'F');
-            
-            doc.setTextColor(0, 0, 0);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(12);
-            doc.text("PERINCIAN LOT:", 22, 165);
-            
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(11);
-            doc.text("NOMBOR LOT     : " + noLot, 25, 175);
-            doc.text("NAMA PEMILIK   : " + document.getElementById('val-owner').innerText, 25, 183);
-            doc.text("KELUASAN LOT   : " + document.getElementById('val-area').innerText, 25, 191);
-            doc.text("TARIKH CETAK   : " + new Date().toLocaleString(), 25, 199);
-
-            // Footer
-            doc.setFontSize(8);
-            doc.setTextColor(150);
-            doc.text("Dijana secara automatik melalui Sistem GIS Taman Putra Harmoni", 105, 285, {align: 'center'});
-
-            doc.save("Laporan_Lot_" + noLot + ".pdf");
-
-        } catch (e) {
-            console.error(e);
-            alert("Ralat semasa menjana PDF. Sila cuba lagi.");
-        } finally {
-            pdfBtn.disabled = false;
-            pdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i> Export PDF';
-        }
-    }
-</script>
+        // --- MASUKKAN KOD JAVASCRIPT ANDA DI SINI ---
+        window.L_PREFER_CANVAS = true; 
+        // ... (copy & paste baki kod anda tadi ke sini)
+    </script>
+</body>
+</html>
