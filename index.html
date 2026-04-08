@@ -39,15 +39,15 @@
         .info-tag { font-size: 0.7rem; color: #95a5a6; display: block; }
         .info-data { font-size: 1rem; font-weight: bold; color: #e74c3c; margin-top: 4px; text-transform: uppercase; }
 
-        /* Gaya Label yang muncul bila klik */
         .click-label {
-            background: rgba(47, 54, 64, 0.9) !important;
+            background: rgba(47, 54, 64, 0.95) !important;
             color: white !important;
             border: 2px solid #e74c3c !important;
             border-radius: 5px;
-            padding: 8px;
+            padding: 10px;
             font-weight: bold;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            min-width: 120px;
         }
     </style>
 </head>
@@ -151,15 +151,12 @@
     var lotLayer = L.geoJson(json_LOTFINAL_0, {
         style: lotStyle,
         onEachFeature: function(feature, layer) {
-            // HANYA EVENT CLICK DIKEKALKAN
             layer.on('click', function(e) {
                 selectThisLot(feature, layer);
             });
-            // EVENT MOUSEOVER (HOVER) TELAH DIBUANG
         }
     }).addTo(map);
 
-    // --- KOD BATU SEMPADAN ---
     var boundaryPoints = L.geoJson(json_TITIKCLEANGABUNG_1, {
         pointToLayer: function (feature, latlng) {
             return L.circleMarker(latlng, { radius: 5, fillColor: "#ffff00", color: "#000", weight: 1, fillOpacity: 0.8 });
@@ -173,34 +170,38 @@
         }
     }).addTo(map);
 
-    // --- FUNGSI PEMILIHAN LOT (MAKLUMAT MUNCUL SINI) ---
+    // --- FUNGSI PILIH LOT DENGAN MAKLUMAT LUAS ---
     function selectThisLot(feature, layer) {
         selectedLotData = feature;
         var props = feature.properties;
+        
+        // Ambil data owner & luas (tambah fallback kalau nama field berbeza)
         var ownerName = props["tsp — pe"] || "TIADA MAKLUMAT";
+        var rawArea = props.AREA || props.LUAS || props.area || null;
+        var areaDisplay = rawArea ? parseFloat(rawArea).toFixed(2) + " m²" : "TIADA DATA";
 
-        // 1. Kemaskini Sidebar
+        // 1. Update Sidebar
         showLotInfo(props);
 
-        // 2. Buat Highlight Kuning
+        // 2. Highlight Lot
         if(highlightLayer) map.removeLayer(highlightLayer);
         highlightLayer = L.geoJson(feature, {
             style: { color: '#ffff00', weight: 4, fillColor: '#ffff00', fillOpacity: 0.3 }
         }).addTo(map);
 
-        // 3. Papar Tooltip/Label secara kekal pada lot yang diklik sahaja
-        // Padam label pada mana-mana lot lain dulu
+        // 3. Papar Label (Termasuk LUAS)
         lotLayer.eachLayer(function(l) { l.unbindTooltip(); });
         
         layer.bindTooltip(`
             <div style="text-align:center;">
-                <b style="color:#e74c3c;">LOT ${props.NO_LOT}</b><br>
-                <small>${ownerName}</small>
+                <b style="color:#e74c3c; font-size:14px;">LOT ${props.NO_LOT}</b><br>
+                <span style="font-size:11px;">${ownerName}</span><br>
+                <hr style="border:0.5px solid #444; margin:5px 0;">
+                <span style="color:#f1c40f;">Luas: ${areaDisplay}</span>
             </div>`, 
             { permanent: true, direction: 'center', className: 'click-label' }
         ).openTooltip();
 
-        // 4. Zoom ke lot
         map.fitBounds(layer.getBounds(), { padding: [50, 50] });
     }
 
@@ -213,8 +214,9 @@
     }
 
     function showLotInfo(props) {
+        var rawArea = props.AREA || props.LUAS || props.area || null;
         document.getElementById('val-lot').innerText = props.NO_LOT || '-';
-        document.getElementById('val-area').innerText = props.AREA ? props.AREA.toFixed(2) + " m²" : '-';
+        document.getElementById('val-area').innerText = rawArea ? parseFloat(rawArea).toFixed(2) + " m²" : '-';
         document.getElementById('val-owner').innerText = props["tsp — pe"] || "TIADA MAKLUMAT";
         document.getElementById('inputSearchLot').value = props.NO_LOT;
     }
@@ -233,7 +235,6 @@
 
     function zoomAll() { 
         map.fitBounds(lotLayer.getBounds());
-        // Padam label bila zoom out semua (optional)
         lotLayer.eachLayer(function(l) { l.unbindTooltip(); });
     }
 
