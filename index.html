@@ -38,19 +38,22 @@
         .info-display { background: #1e272e; padding: 10px; border-radius: 8px; border-left: 5px solid #e74c3c; margin-top: 10px; }
         .info-tag { font-size: 0.7rem; color: #95a5a6; display: block; }
         .info-data { font-size: 1rem; font-weight: bold; color: #e74c3c; margin-top: 4px; text-transform: uppercase; }
-
-        /* LABEL YANG AKAN MUNCUL BILA KLIK */
+        
+        /* Gaya untuk label yang muncul bila lot diklik */
         .lot-label {
-            background: rgba(0, 0, 0, 0.7) !important;
+            background: rgba(0, 0, 0, 0.8) !important;
             border: 1px solid #e74c3c !important;
             color: #ffffff !important;
             font-weight: bold;
-            padding: 5px;
+            padding: 6px;
             border-radius: 4px;
             text-align: center;
             font-size: 11px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
             pointer-events: none;
         }
+
+        .custom-tooltip { background: #2f3640 !important; color: #ffffff !important; border: 2px solid #e74c3c !important; border-radius: 8px; padding: 10px; font-size: 13px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); opacity: 1 !important; }
     </style>
 </head>
 <body>
@@ -153,49 +156,78 @@
     var lotLayer = L.geoJson(json_LOTFINAL_0, {
         style: lotStyle,
         onEachFeature: function(feature, layer) {
+            // Bila diklik, jalankan fungsi pemilihan
             layer.on('click', function(e) {
                 selectThisLot(feature, layer);
+            });
+
+            // Hover tooltip untuk maklumat ringkas
+            layer.on('mouseover', function(e) {
+                var props = feature.properties;
+                var ownerName = props["tsp — pe"] || "TIADA MAKLUMAT";
+                layer.bindTooltip(`<b>Lot:</b> ${props.NO_LOT}<br><b>Pemilik:</b> ${ownerName}`, { sticky: true, className: 'custom-tooltip' });
             });
         }
     }).addTo(map);
 
+    // --- FUNGSI PILIH LOT ---
     function selectThisLot(feature, layer) {
         selectedLotData = feature;
         var props = feature.properties;
-        
-        // 1. Kemaskini maklumat di Sidebar
+
+        // 1. Papar maklumat di Sidebar
         showLotInfo(props);
-        
-        // 2. Highlight lot yang dipilih
+
+        // 2. Highlight lot tersebut
         if(highlightLayer) map.removeLayer(highlightLayer);
         highlightLayer = L.geoJson(feature, {
             style: { color: '#ffff00', weight: 4, fillColor: '#ffff00', fillOpacity: 0.3 }
         }).addTo(map);
 
-        // 3. Buang semua label lama & papar label baru di lot yang diklik sahaja
-        lotLayer.eachLayer(function(l) { l.unbindTooltip(); });
-        
-        var labelText = "<b>Lot: " + (props.NO_LOT || '-') + "</b><br>" + 
-                        (props.AREA ? props.AREA.toFixed(2) + " m²" : '-');
+        // 3. Papar label di atas lot secara eksklusif (padam label lama dulu)
+        lotLayer.eachLayer(function(l) {
+            l.unbindTooltip(); 
+        });
 
-        layer.bindTooltip(labelText, {
+        var labelContent = `<b>LOT ${props.NO_LOT || '-'}</b><br>${props.AREA ? props.AREA.toFixed(2) + ' m²' : '-'}`;
+        
+        layer.bindTooltip(labelContent, {
             permanent: true,
             direction: 'center',
             className: 'lot-label'
         }).openTooltip();
 
-        // Zoom ke lot tersebut
+        // 4. Fokuskan peta ke lot tersebut
         map.fitBounds(layer.getBounds(), { padding: [50, 50] });
     }
 
-    function showLotInfo(props) {
-        document.getElementById('val-lot').innerText = props.NO_LOT || '-';
-        document.getElementById('val-area').innerText = props.AREA ? props.AREA.toFixed(2) + " m²" : '-';
-        document.getElementById('val-owner').innerText = props["tsp — pe"] || "TIADA MAKLUMAT";
-        document.getElementById('inputSearchLot').value = props.NO_LOT;
-    }
+    // --- BATU SEMPADAN ---
+    var boundaryPoints = L.geoJson(json_TITIKCLEANGABUNG_1, {
+        pointToLayer: function (feature, latlng) {
+            return L.circleMarker(latlng, { radius: 5, fillColor: "#ffff00", color: "#000", weight: 1, fillOpacity: 0.8 });
+        },
+        onEachFeature: function (feature, layer) {
+            var lat = layer.getLatLng().lat.toFixed(6);
+            var lng = layer.getLatLng().lng.toFixed(6);
+            var name = feature.properties.Name || "Batu Sempadan";
+            
+            layer.bindTooltip("<b>" + name + "</b>", { sticky: true });
+            
+            layer.bindPopup(`
+                <div style="color:black; font-size:12px;">
+                    <b style="color:red;">MAKLUMAT KOORDINAT</b><br><hr>
+                    <b>ID:</b> ${name}<br>
+                    <b>Lat:</b> ${lat}<br>
+                    <b>Long:</b> ${lng}<br>
+                    <b>Status:</b> Terjumpa
+                </div>
+            `);
 
-    // --- FUNGSI LAIN ---
+            layer.on('mouseover', function() { this.setStyle({ radius: 8, fillColor: '#fff' }); });
+            layer.on('mouseout', function() { this.setStyle({ radius: 5, fillColor: '#ffff00' }); });
+        }
+    }).addTo(map);
+
     function toggleMainLayer() {
         document.getElementById('check-lot').checked ? map.addLayer(lotLayer) : map.removeLayer(lotLayer);
     }
@@ -204,11 +236,12 @@
         document.getElementById('check-boundary').checked ? map.addLayer(boundaryPoints) : map.removeLayer(boundaryPoints);
     }
 
-    var boundaryPoints = L.geoJson(json_TITIKCLEANGABUNG_1, {
-        pointToLayer: function (feature, latlng) {
-            return L.circleMarker(latlng, { radius: 5, fillColor: "#ffff00", color: "#000", weight: 1, fillOpacity: 0.8 });
-        }
-    }).addTo(map);
+    function showLotInfo(props) {
+        document.getElementById('val-lot').innerText = props.NO_LOT || '-';
+        document.getElementById('val-area').innerText = props.AREA ? props.AREA.toFixed(2) + " m²" : '-';
+        document.getElementById('val-owner').innerText = props["tsp — pe"] || "TIADA MAKLUMAT";
+        document.getElementById('inputSearchLot').value = props.NO_LOT;
+    }
 
     function findLot() {
         var val = document.getElementById('inputSearchLot').value.toUpperCase();
@@ -222,7 +255,11 @@
         if(!found) alert("No Lot tidak dijumpai!");
     }
 
-    function zoomAll() { map.fitBounds(lotLayer.getBounds()); }
+    function zoomAll() { 
+        map.fitBounds(lotLayer.getBounds()); 
+        // Padam label bila zoom out semua
+        lotLayer.eachLayer(function(l) { l.unbindTooltip(); });
+    }
 
     async function generateFullPDF() {
         const { jsPDF } = window.jspdf;
@@ -231,8 +268,9 @@
         if(noLot === "-" || !selectedLotData) { alert("Sila pilih lot dulu!"); return; }
         pdfBtn.disabled = true;
         pdfBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        
+        map.flyToBounds(highlightLayer.getBounds(), { padding: [100, 100], animate: false });
         try {
+            await new Promise(r => setTimeout(r, 1200));
             const canvas = await html2canvas(document.getElementById('map'), { useCORS: true, scale: 2 });
             const imgData = canvas.toDataURL('image/png');
             const doc = new jsPDF('p', 'mm', 'a4');
