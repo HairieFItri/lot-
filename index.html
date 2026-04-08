@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
-    <title>Taman Putra Harmoni Resident - Dashboard</title>
+    <title>Taman Putra Harmoni Resident - Dashboard (Fixed)</title>
     
     <link rel="stylesheet" href="css/leaflet.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -19,39 +19,25 @@
         .header-left { display: flex; align-items: center; gap: 15px; }
         .header-logo { height: 45px; background: white; border-radius: 6px; padding: 3px; }
         .header-text { font-size: 1.3rem; font-weight: bold; letter-spacing: 1px; }
-        
         #content-body { display: flex; flex: 1; overflow: hidden; position: relative; }
-        #map { flex: 1; height: 100%; background: #242424; }
-        
-        #sidebar { width: 350px; background: #1e272e; color: #ecf0f1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; box-shadow: -4px 0 15px rgba(0,0,0,0.5); z-index: 1000; transition: all 0.3s ease; }
-        #sidebar.closed { margin-right: -350px; width: 0; padding: 0; }
-        
+        #map { flex: 1; height: 100%; background: #242424; transition: all 0.3s ease; }
+        #sidebar { width: 350px; background: #1e272e; color: #ecf0f1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; box-shadow: -4px 0 15px rgba(0,0,0,0.5); transition: all 0.3s ease; position: relative; z-index: 1000; }
+        #sidebar.closed { margin-right: -350px; width: 0; padding: 0; overflow: hidden; }
         #toggle-btn { position: absolute; top: 15px; right: 15px; z-index: 1002; background: #c0392b; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
-        
         .section-label { color: #e74c3c; font-weight: bold; font-size: 0.85rem; text-transform: uppercase; border-bottom: 1px solid #3d3d3d; padding-bottom: 8px; margin-bottom: 10px; display: block; }
         .control-card { background: #2f3640; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
-        
         input[type="text"], select { width: 100%; padding: 10px; margin-top: 8px; margin-bottom: 12px; border-radius: 6px; border: none; background: #1e272e; color: white; box-sizing: border-box; }
-        
         .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; transition: 0.3s; }
         .btn-red { background: #c0392b; color: white; }
-        .btn-outline { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; }
         .btn-blue { background: #2980b9; color: white; }
-        .btn:hover { filter: brightness(1.2); transform: scale(1.02); }
-
         .info-display { background: #1e272e; padding: 10px; border-radius: 8px; border-left: 5px solid #e74c3c; margin-top: 10px; }
         .info-tag { font-size: 0.7rem; color: #95a5a6; display: block; }
         .info-data { font-size: 1rem; font-weight: bold; color: #e74c3c; margin-top: 4px; text-transform: uppercase; }
 
-        /* Label No Lot yang terapung di peta */
+        /* Style Lot Label */
         .lot-label-permanent {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            color: white !important;
-            font-weight: bold;
-            font-size: 11px;
-            text-shadow: 2px 2px 3px black;
+            background: transparent !important; border: none !important; box-shadow: none !important;
+            color: white !important; font-weight: bold; font-size: 10px; text-shadow: 1px 1px 2px black;
         }
     </style>
 </head>
@@ -63,32 +49,24 @@
             <img src="Logo poli fo gis.png" class="header-logo" alt="Logo">
             <span class="header-text">TAMAN PUTRA HARMONI</span>
         </div>
-        <div style="opacity: 0.8; font-size: 0.8rem;"><i class="fas fa-user-shield"></i> Admin Panel</div>
+        <div style="opacity: 0.8; font-size: 0.8rem;"><i class="fas fa-user-shield"></i> Laporan Lot Tanah</div>
     </div>
 
-    <button id="toggle-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+    <button id="toggle-btn" onclick="toggleSidebar()">
+        <i class="fas fa-bars"></i>
+    </button>
 
     <div id="content-body">
         <div id="map"></div>
-
         <div id="sidebar">
-            <span class="section-label"><i class="fas fa-layer-group"></i> Kawalan Lapisan</span>
-            <div class="control-card">
-                <select onchange="updateBaseLayer(this.value)">
-                    <option value="sat">Satelit (Hybrid)</option>
-                    <option value="str">Peta Jalan</option>
-                </select>
-            </div>
-
             <span class="section-label"><i class="fas fa-search-location"></i> Carian & Info Lot</span>
             <div class="control-card">
                 <input type="text" id="inputSearchLot" placeholder="Masukkan No Lot...">
-                <button class="btn btn-red" onclick="findLot()"><i class="fas fa-search"></i> Cari</button>
-                <button class="btn btn-outline" onclick="zoomAll()"><i class="fas fa-compress-arrows-alt"></i> Reset</button>
-                <button id="pdf-btn" class="btn btn-blue" onclick="generateFullPDF()"><i class="fas fa-file-pdf"></i> Export PDF</button>
+                <button class="btn btn-red" onclick="findLot()"><i class="fas fa-search"></i> Cari Sekarang</button>
+                <button id="pdf-btn" class="btn btn-blue" onclick="generateFullPDF()"><i class="fas fa-file-pdf"></i> Export PDF Laporan</button>
             </div>
 
-            <div class="control-card" id="info-panel" style="border-top: 3px solid #e74c3c;">
+            <div class="control-card" id="info-panel">
                 <div class="info-display">
                     <span class="info-tag">NO. LOT</span>
                     <div class="info-data" id="val-lot">-</div>
@@ -114,27 +92,15 @@
     var selectedLotData = null;
     var highlightLayer = null;
 
+    // 1. Setup Map
     var map = L.map('map', { zoomControl: false, maxZoom: 22 }).setView([2.1038, 102.5218], 18);
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
     var satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        crossOrigin: 'anonymous', maxZoom: 22, maxNativeZoom: 19
+        crossOrigin: 'anonymous', maxZoom: 22
     }).addTo(map);
 
-    var strLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        crossOrigin: 'anonymous', maxZoom: 22, maxNativeZoom: 19
-    });
-
-    function updateBaseLayer(val) {
-        val === 'str' ? (map.removeLayer(satLayer), strLayer.addTo(map)) : (map.removeLayer(strLayer), satLayer.addTo(map));
-    }
-
-    function toggleSidebar() {
-        document.getElementById('sidebar').classList.toggle('closed');
-        setTimeout(() => { map.invalidateSize(); }, 300);
-    }
-
-    // Layer Lot dengan No Lot Kekal
+    // 2. Load Lot Layer
     var lotLayer = L.geoJson(json_LOTFINAL_0, {
         style: function() { return { color: '#ffffff', weight: 1, fillColor: '#e74c3c', fillOpacity: 0.3 }; },
         onEachFeature: function(feature, layer) {
@@ -147,33 +113,30 @@
         }
     }).addTo(map);
 
+    // 3. Fungsi Pemilihan Lot (Membetulkan Isu Highlight & Sync Data)
     function selectThisLot(feature, layer) {
-        selectedLotData = feature;
+        selectedLotData = feature; // Simpan data terpilih
         var props = feature.properties;
-        
-        // Luas & Owner
+
+        // Kemaskini maklumat di sidebar
         var rawArea = props.AREA || props.LUAS || props.area || "0";
-        var areaVal = parseFloat(rawArea).toFixed(2) + " m²";
-        var owner = props["tsp — pe"] || "TIADA MAKLUMAT";
+        document.getElementById('val-lot').innerText = props.NO_LOT || '-';
+        document.getElementById('val-owner').innerText = props["tsp — pe"] || "TIADA MAKLUMAT";
+        document.getElementById('val-area').innerText = parseFloat(rawArea).toFixed(2) + " m²";
+        document.getElementById('inputSearchLot').value = props.NO_LOT;
 
-        document.getElementById('val-lot').innerText = props.NO_LOT;
-        document.getElementById('val-owner').innerText = owner;
-        document.getElementById('val-area').innerText = areaVal;
-
+        // Lukis Highlight Polygon baru (Tepat mengikut koordinat sebenar)
         if(highlightLayer) map.removeLayer(highlightLayer);
         highlightLayer = L.geoJson(feature, {
-            style: { color: '#ffff00', weight: 4, fillColor: '#ffff00', fillOpacity: 0.3 }
+            style: { color: '#ffff00', weight: 5, fillColor: '#ffff00', fillOpacity: 0.4 }
         }).addTo(map);
 
         map.fitBounds(layer.getBounds(), { padding: [50, 50] });
-        
-        L.popup().setLatLng(layer.getBounds().getCenter())
-            .setContent(`<center><b>LOT ${props.NO_LOT}</b><br>${owner}</center>`)
-            .openOn(map);
     }
 
+    // 4. Cari Lot
     function findLot() {
-        var val = document.getElementById('inputSearchLot').value;
+        var val = document.getElementById('inputSearchLot').value.toUpperCase();
         var found = false;
         lotLayer.eachLayer(function(l) {
             if(l.feature.properties.NO_LOT == val) {
@@ -184,55 +147,85 @@
         if(!found) alert("No Lot tidak dijumpai!");
     }
 
-    function zoomAll() { map.fitBounds(lotLayer.getBounds()); }
-
-    // --- FUNGSI GENERATE PDF ---
+    // 5. Fungsi Penjanaan PDF (Membetulkan Isu Ketepatan Gambar & Layout)
     async function generateFullPDF() {
         const { jsPDF } = window.jspdf;
+        const pdfBtn = document.getElementById('pdf-btn');
         const noLot = document.getElementById('val-lot').innerText;
         const owner = document.getElementById('val-owner').innerText;
         const area = document.getElementById('val-area').innerText;
-        const btn = document.getElementById('pdf-btn');
 
-        if(noLot === "-") { alert("Pilih lot dahulu!"); return; }
+        if(noLot === "-" || !selectedLotData) {
+            alert("Sila pilih lot pada peta terlebih dahulu!");
+            return;
+        }
 
-        btn.disabled = true;
-        btn.innerHTML = "Processing...";
+        // UI Loading
+        pdfBtn.disabled = true;
+        pdfBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menjana PDF...';
 
-        // Pastikan lot berada di tengah gambar
-        map.flyToBounds(highlightLayer.getBounds(), { padding: [150, 150], animate: false });
+        // Pastikan peta fokus pada lot tersebut sebelum capture
+        map.fitBounds(highlightLayer.getBounds(), { padding: [100, 100] });
+
+        // Tunggu sebentar untuk rendering peta selesai (1.5 saat)
+        await new Promise(r => setTimeout(r, 1500));
 
         try {
-            await new Promise(r => setTimeout(r, 1200));
-            const canvas = await html2canvas(document.getElementById('map'), { useCORS: true, scale: 2 });
-            const imgData = canvas.toDataURL('image/png');
-
-            const doc = new jsPDF('p', 'mm', 'a4');
+            const mapCanvas = await html2canvas(document.getElementById('map'), { 
+                useCORS: true, 
+                scale: 2,
+                logging: false
+            });
             
-            // Header
+            const imgData = mapCanvas.toDataURL('image/png');
+            const doc = new jsPDF('p', 'mm', 'a4');
+
+            // Header Laporan
             doc.setFillColor(183, 28, 28);
             doc.rect(0, 0, 210, 40, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(18);
-            doc.text("LAPORAN MAKLUMAT LOT", 105, 18, {align: 'center'});
-            doc.setFontSize(11);
-            doc.text("Taman Putra Harmoni Resident", 105, 26, {align: 'center'});
+            doc.text("LAPORAN MAKLUMAT LOT TANAH", 105, 15, {align: 'center'});
+            doc.setFontSize(12);
+            doc.text("Taman Putra Harmoni Resident", 105, 25, {align: 'center'});
 
-            // Informasi Lot
+            // Masukkan Gambar Peta (Highlight akan kelihatan tepat)
+            doc.addImage(imgData, 'PNG', 15, 45, 180, 110);
+
+            // Kotak Maklumat (Diselaraskan dengan lot terpilih)
+            doc.setDrawColor(183, 28, 28);
+            doc.setLineWidth(0.5);
+            doc.rect(15, 160, 180, 50);
+
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(12);
-            doc.text(`NO. LOT: ${noLot}`, 20, 55);
-            doc.text(`PEMILIK: ${owner}`, 20, 63);
-            doc.text(`LUAS   : ${area}`, 20, 71);
+            doc.setFont("helvetica", "bold");
+            doc.text("BUTIRAN LOT:", 20, 170);
+            
+            doc.setFont("helvetica", "normal");
+            doc.text(`Nombor Lot     : ${noLot}`, 20, 180);
+            doc.text(`Nama Pemilik  : ${owner}`, 20, 190);
+            doc.text(`Keluasan Lot   : ${area}`, 20, 200);
 
-            // Gambar Peta (Lot di tengah)
-            doc.setDrawColor(183, 28, 28);
-            doc.rect(19, 79, 172, 92);
-            doc.addImage(imgData, 'PNG', 20, 80, 170, 90);
+            // Footer
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`Dijana secara automatik pada: ${new Date().toLocaleString()}`, 15, 285);
 
             doc.save(`Laporan_Lot_${noLot}.pdf`);
-        } catch (e) { alert("Ralat PDF!"); }
-        finally { btn.disabled = false; btn.innerHTML = "Export PDF"; }
+
+        } catch (e) {
+            console.error(e);
+            alert("Ralat teknikal semasa menjana PDF.");
+        } finally {
+            pdfBtn.disabled = false;
+            pdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i> Export PDF Laporan';
+        }
+    }
+
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('closed');
+        setTimeout(() => { map.invalidateSize(); }, 300);
     }
 </script>
 </body>
