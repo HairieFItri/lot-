@@ -38,7 +38,21 @@
         .info-display { background: #1e272e; padding: 10px; border-radius: 8px; border-left: 5px solid #e74c3c; margin-top: 10px; }
         .info-tag { font-size: 0.7rem; color: #95a5a6; display: block; }
         .info-data { font-size: 1rem; font-weight: bold; color: #e74c3c; margin-top: 4px; text-transform: uppercase; }
+        
+        /* STYLE UNTUK LABEL DALAM LOT */
         .custom-tooltip { background: #2f3640 !important; color: #ffffff !important; border: 2px solid #e74c3c !important; border-radius: 8px; padding: 10px; font-size: 13px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); opacity: 1 !important; }
+        
+        .lot-label {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: #ffffff !important;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;
+            font-size: 10px;
+            text-align: center;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -141,18 +155,29 @@
     var lotLayer = L.geoJson(json_LOTFINAL_0, {
         style: lotStyle,
         onEachFeature: function(feature, layer) {
+            // --- PAPARKAN NO LOT DAN KELUASAN SECARA KEKAL ---
+            var props = feature.properties;
+            var labelText = "<b>" + (props.NO_LOT || '-') + "</b><br>" + 
+                            (props.AREA ? props.AREA.toFixed(2) + " m²" : '-');
+
+            layer.bindTooltip(labelText, {
+                permanent: true,
+                direction: 'center',
+                className: 'lot-label'
+            }).openTooltip();
+
             layer.on('click', function(e) {
                 selectThisLot(feature, layer);
             });
+            
             layer.on('mouseover', function(e) {
-                var props = feature.properties;
+                // Tooltip tambahan ketika hover jika mahu info lebih detail (contoh: Owner)
                 var ownerName = props["tsp — pe"] || "TIADA MAKLUMAT";
-                layer.bindTooltip(`<b>Lot:</b> ${props.NO_LOT}<br><b>Pemilik:</b> ${ownerName}`, { sticky: true, className: 'custom-tooltip' }).openTooltip();
+                layer.bindTooltip(`<b>Lot:</b> ${props.NO_LOT}<br><b>Pemilik:</b> ${ownerName}`, { sticky: true, className: 'custom-tooltip' });
             });
         }
     }).addTo(map);
 
-    // --- KOD BATU SEMPADAN (POPUPS) ---
     var boundaryPoints = L.geoJson(json_TITIKCLEANGABUNG_1, {
         pointToLayer: function (feature, latlng) {
             return L.circleMarker(latlng, { radius: 5, fillColor: "#ffff00", color: "#000", weight: 1, fillOpacity: 0.8 });
@@ -162,10 +187,8 @@
             var lng = layer.getLatLng().lng.toFixed(6);
             var name = feature.properties.Name || "Batu Sempadan";
             
-            // Bila tetikus lalu (Hover)
             layer.bindTooltip("<b>" + name + "</b>", { sticky: true });
             
-            // Bila Klik (Popup Maklumat)
             layer.bindPopup(`
                 <div style="color:black; font-size:12px;">
                     <b style="color:red;">MAKLUMAT KOORDINAT</b><br><hr>
