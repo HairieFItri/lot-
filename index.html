@@ -26,7 +26,7 @@
         #toggle-btn { position: absolute; top: 15px; right: 15px; z-index: 1002; background: #c0392b; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
         .section-label { color: #e74c3c; font-weight: bold; font-size: 0.85rem; text-transform: uppercase; border-bottom: 1px solid #3d3d3d; padding-bottom: 8px; margin-bottom: 10px; display: block; }
         .control-card { background: #2f3640; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
-        input[type="text"], select { width: 100%; padding: 10px; margin-top: 8px; margin-bottom: 12px; border-radius: 6px; border: none; background: #1e272e; color: white; box-sizing: border-box; }
+        input[type="text"], select { width: 100%; padding: 10px; margin-top: 8px; margin-bottom: 12px; border-radius: 66px; border: none; background: #1e272e; color: white; box-sizing: border-box; }
         .layer-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; cursor: pointer; font-size: 0.9rem; }
         .layer-item input { cursor: pointer; accent-color: #e74c3c; width: 18px; height: 18px; }
         .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; transition: 0.3s; }
@@ -39,19 +39,23 @@
         .info-tag { font-size: 0.7rem; color: #95a5a6; display: block; }
         .info-data { font-size: 1rem; font-weight: bold; color: #e74c3c; margin-top: 4px; text-transform: uppercase; }
         
-        /* STYLE UNTUK LABEL DALAM LOT */
+        /* STYLE UNTUK TOOLTIP HOVER */
         .custom-tooltip { background: #2f3640 !important; color: #ffffff !important; border: 2px solid #e74c3c !important; border-radius: 8px; padding: 10px; font-size: 13px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); opacity: 1 !important; }
         
+        /* STYLE UNTUK LABEL DALAM LOT (TELAH DIPERBAIKI) */
         .lot-label {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
             color: #ffffff !important;
             font-weight: bold;
-            text-shadow: 1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000;
-            font-size: 10px;
+            text-shadow: 1px 1px 1px #000, -1px -1px 1px #000, 1px -1px 1px #000, -1px 1px 1px #000;
+            font-size: 8px !important; /* Saiz fon lebih kecil */
             text-align: center;
             pointer-events: none;
+            padding: 0 !important;
+            margin: 0 !important;
+            white-space: nowrap;
         }
     </style>
 </head>
@@ -152,31 +156,54 @@
         return { color: '#ffffff', weight: 1, fillColor: '#e74c3c', fillOpacity: 0.4 };
     }
 
+    // Fungsi untuk memaksa label dibuka tanpa menghiraukan pertindihan
+    function checkLabelOverlap() {
+        if (!map.hasLayer(lotLayer)) return;
+        lotLayer.eachLayer(function(layer) {
+            if (layer.getTooltip()) {
+                layer.openTooltip();
+            }
+        });
+    }
+
     var lotLayer = L.geoJson(json_LOTFINAL_0, {
         style: lotStyle,
         onEachFeature: function(feature, layer) {
             // --- PAPARKAN NO LOT DAN KELUASAN SECARA KEKAL ---
             var props = feature.properties;
-            var labelText = "<b>" + (props.NO_LOT || '-') + "</b><br>" + 
-                            (props.AREA ? props.AREA.toFixed(2) + " m²" : '-');
+            // Gunakan HTML untuk jarak baris yang rapat
+            var labelText = "<div style='line-height: 0.9;'>" +
+                            "<b>" + (props.NO_LOT || '-') + "</b><br/>" + 
+                            "<span style='font-weight:normal;'>" + (props.AREA ? props.AREA.toFixed(1) + "m²" : '-') + "</span>" +
+                            "</div>";
 
             layer.bindTooltip(labelText, {
                 permanent: true,
                 direction: 'center',
-                className: 'lot-label'
-            }).openTooltip();
+                className: 'lot-label',
+                opacity: 1,
+                interactive: false
+            });
 
             layer.on('click', function(e) {
                 selectThisLot(feature, layer);
             });
             
             layer.on('mouseover', function(e) {
-                // Tooltip tambahan ketika hover jika mahu info lebih detail (contoh: Owner)
+                // Tooltip tambahan ketika hover (contoh: Owner)
                 var ownerName = props["tsp — pe"] || "TIADA MAKLUMAT";
                 layer.bindTooltip(`<b>Lot:</b> ${props.NO_LOT}<br><b>Pemilik:</b> ${ownerName}`, { sticky: true, className: 'custom-tooltip' });
             });
         }
     }).addTo(map);
+
+    // Jalankan fungsi memaksa label dibuka setelah semua lot dimuatkan
+    lotLayer.on('add', function() {
+        setTimeout(checkLabelOverlap, 100);
+    });
+
+    // Jalankan juga setiap kali pengguna zoom atau alih peta
+    map.on('zoomend moveend', checkLabelOverlap);
 
     var boundaryPoints = L.geoJson(json_TITIKCLEANGABUNG_1, {
         pointToLayer: function (feature, latlng) {
@@ -215,7 +242,12 @@
     }
 
     function toggleMainLayer() {
-        document.getElementById('check-lot').checked ? map.addLayer(lotLayer) : map.removeLayer(lotLayer);
+        if(document.getElementById('check-lot').checked) {
+            map.addLayer(lotLayer);
+            setTimeout(checkLabelOverlap, 100);
+        } else {
+            map.removeLayer(lotLayer);
+        }
     }
 
     function toggleBoundary() {
